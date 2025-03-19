@@ -1,3 +1,7 @@
+import os 
+from pathlib import Path
+
+
 """
 Django settings for core project.
 
@@ -39,6 +43,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'graphene_django', 
     'corsheaders', 
+    'works.apps.WorksConfig',  # Используем явное указание конфигурации
 ]
 
 
@@ -131,3 +136,8 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+
+AUTH_USER_MODEL = 'bely_works.User' 
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')

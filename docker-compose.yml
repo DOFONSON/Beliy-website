@@ -27,16 +27,18 @@ services:
       - app-network
 
   client:
-    build:
-      context: ./client
-    command: npm start
+    build: ./client
+    command: sh -c "npm install && npm start"
     volumes:
       - ./client:/app
       - /app/node_modules
     ports:
       - "3000:3000"
-    depends_on:
-      - backend
+    environment:
+      - CHOKIDAR_USEPOLLING=true 
+      - WATCHPACK_POLLING=true 
+      - NODE_ENV=development
+      - REACT_APP_UPDATE_SIGNAL=1
     networks:
       - app-network
 
