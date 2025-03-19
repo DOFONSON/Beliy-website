@@ -1,0 +1,47 @@
+services:
+  postgres:
+    image: postgres:13
+    environment:
+      POSTGRES_USER: bely_user
+      POSTGRES_PASSWORD: bely_pass
+      POSTGRES_DB: bely_db
+      POSTGRES_INITDB_ARGS: '--encoding=UTF-8'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - app-network
+
+  backend:
+    build: 
+      context: ./backend
+    command: bash -c "python manage.py migrate && python manage.py runserver 0.0.0.0:8000"
+    volumes:
+      - ./backend:/app
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgres://bely_user:bely_pass@postgres:5432/bely_db
+    depends_on:
+      - postgres
+    networks:
+      - app-network
+
+  client:
+    build:
+      context: ./client
+    command: npm start
+    volumes:
+      - ./client:/app
+      - /app/node_modules
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    networks:
+      - app-network
+
+volumes:
+  postgres_data:
+
+networks:
+  app-network:
