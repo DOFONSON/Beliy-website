@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container">
+    <h1>{% if form.instance.pk %}Редактирование{% else %}Создание{% endif %} товара</h1>
+    
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        {{ form.as_p }}
+        
+        <h3>Авторы</h3>
+        {{ author_formset.management_form }}
+        {% for form in author_formset %}
+        <div class="author-form">
+            {{ form.as_p }}
+        </div>
+        {% endfor %}
+        
+        <button type="submit" class="btn btn-primary">Сохранить</button>
+        <a href="{% url 'product-list' %}" class="btn btn-secondary">Отмена</a>
+    </form>
+</div>
+{% endblock %} 

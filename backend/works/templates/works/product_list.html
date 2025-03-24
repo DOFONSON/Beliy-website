@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container">
+    <h1>Список товаров</h1>
+    {% if user.is_authenticated %}
+    <a href="{% url 'product-create' %}" class="btn btn-primary">Добавить товар</a>
+    {% endif %}
+    
+    <div class="row">
+        {% for product in products %}
+        <div class="col-md-4 mb-4">
+            <div class="card">
+                {% if product.image %}
+                <img src="{{ product.image.url }}" class="card-img-top" alt="{{ product.title }}">
+                {% endif %}
+                <div class="card-body">
+                    <h5 class="card-title">{{ product.title }}</h5>
+                    <p class="card-text">{{ product.price }} ₽</p>
+                    <p class="card-text">
+                        Авторы:
+                        {% for author in product.authors.all %}
+                        {{ author.name }}{% if not forloop.last %}, {% endif %}
+                        {% endfor %}
+                    </p>
+                    <a href="{% url 'product-detail' product.pk %}" class="btn btn-info">Подробнее</a>
+                    {% if user.is_authenticated %}
+                    <a href="{% url 'product-update' product.pk %}" class="btn btn-warning">Редактировать</a>
+                    <a href="{% url 'product-delete' product.pk %}" class="btn btn-danger">Удалить</a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %} 
