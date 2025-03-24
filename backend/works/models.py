@@ -4,6 +4,9 @@ from django.contrib.contenttypes.fields import GenericForeignKey, GenericRelatio
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.auth.models import AbstractUser
 from django.utils import timezone
+from django.urls import reverse
+from django.db.models import Manager, Avg, Count, Q
+from datetime import timedelta
 
 # 1. Пользователь (расширяем стандартную модель)
 class User(AbstractUser):
@@ -13,13 +16,6 @@ class User(AbstractUser):
     @property
     def cart(self):
         return self.carts.filter(is_active=True).first()
-
-    class Meta:
-        verbose_name = 'Пользователь'
-        verbose_name_plural = 'Пользователи'
-
-    def __str__(self):
-        return self.username
 
 # 2. Оценка (общая для всех сущностей)
 class Rating(models.Model):
@@ -60,28 +56,75 @@ class Article(models.Model):
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
     class Meta:
-            verbose_name = 'Статья'
-            verbose_name_plural = 'Статьи'
-            ordering = ['-created_at']
+            verbose_name = ('Статья')
+            verbose_name_plural = ('Статьи')
     def __str__(self):
         return self.title
 
+# Собственный менеджер для товаров
+class ProductManager(Manager):
+    def get_discounted(self):
+        """Получить товары со скидкой (старше 30 дней)"""
+        month_ago = timezone.now() - timedelta(days=30)
+        return self.filter(created_at__lte=month_ago)
+    
+    def get_popular(self):
+        """Получить популярные товары (с высоким рейтингом)"""
+        return self.annotate(
+            avg_rating=Avg('ratings__value'),
+            reviews_count=Count('comments')
+        ).filter(avg_rating__gte=4.0)
+
 # 5. Товар
 class Product(models.Model):
+    CATEGORY_CHOICES = [
+        ('BOOK', 'Книга'),
+        ('SOUVENIR', 'Сувенир'),
+        ('ARTWORK', 'Арт-объект'),
+    ]
+    
+    STATUS_CHOICES = [
+        ('IN_STOCK', 'В наличии'),
+        ('OUT_OF_STOCK', 'Нет в наличии'),
+        ('COMING_SOON', 'Скоро в продаже'),
+    ]
+
     title = models.CharField(max_length=200)
     price = models.DecimalField(max_digits=10, decimal_places=2)
     image = models.ImageField(upload_to='products/')
     description = models.TextField()
-    created_at = models.DateTimeField(auto_now_add=True)  # Добавлено поле
-
+    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES, default='BOOK')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='IN_STOCK')
+    created_at = models.DateTimeField(default=timezone.now)
+    last_modified = models.DateTimeField(auto_now=True)
+    stock_date = models.DateTimeField(help_text="Дата поступления на склад")
+    
     ratings = GenericRelation(Rating)
     comments = GenericRelation(Comment)
+    
+    objects = ProductManager()
+
     class Meta:
-                verbose_name = 'Товар'
-                verbose_name_plural = 'Товары'
-                ordering = ['-created_at']
+        verbose_name = 'Товар'
+        verbose_name_plural = 'Товары'
+        ordering = ['-created_at', 'title']
+
     def __str__(self):
         return f"{self.title} - {self.price}₽"
+
+    def get_absolute_url(self):
+        return reverse('product-detail', kwargs={'pk': self.pk})
+
+    def get_discount_percentage(self):
+        """Расчет скидки в зависимости от времени хранения"""
+        days_in_stock = (timezone.now() - self.stock_date).days
+        if days_in_stock > 90:  # Более 3 месяцев
+            return 30
+        elif days_in_stock > 60:  # Более 2 месяцев
+            return 20
+        elif days_in_stock > 30:  # Более 1 месяца
+            return 10
+        return 0
 
 # 6. Корзина
 class Cart(models.Model):
@@ -89,15 +132,11 @@ class Cart(models.Model):
     created_at = models.DateTimeField(default=timezone.now)
     is_active = models.BooleanField(default=True)
     class Meta:
-                verbose_name = 'Корзина'
-                verbose_name_plural = 'Корзины'
-                ordering = ['-created_at']
+                verbose_name = ('Корзина')
+                verbose_name_plural = ('Корзины')
     @property
     def total(self):
         return sum(item.subtotal for item in self.items.all())
-
-    def __str__(self):
-        return f"Корзина {self.user.username}"
 
 # 7. Элемент корзины
 class CartItem(models.Model):
@@ -106,14 +145,11 @@ class CartItem(models.Model):
     quantity = models.PositiveIntegerField(default=1)
 
     class Meta:
-                verbose_name = 'Элемент корзины'
-                verbose_name_plural = 'Элементы корзины'
+                verbose_name = ('Элемент корзины')
+                verbose_name_plural = ('Элементы корзины')
     @property
     def subtotal(self):
         return self.product.price * self.quantity
-
-    def __str__(self):
-        return f"{self.product.title} x{self.quantity}"
 
 # 8. Место
 class Place(models.Model):
@@ -124,8 +160,8 @@ class Place(models.Model):
     ratings = GenericRelation(Rating)
     comments = GenericRelation(Comment)
     class Meta:
-                verbose_name = 'Место'
-                verbose_name_plural = 'Места'
+                verbose_name = ('Место')
+                verbose_name_plural = ('Места')
     def __str__(self):
         return self.title
 
@@ -141,8 +177,28 @@ class LiteraryWork(models.Model):
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
     class Meta:
-                verbose_name = 'Литературное произведение'
-                verbose_name_plural = 'Литературные произведения'
-                ordering = ['-created_at']
+                verbose_name = ('Произведение')
+                verbose_name_plural = ('Произведения')
     def __str__(self):
         return self.title
+
+# Новая модель для акций
+class Promotion(models.Model):
+    PROMOTION_TYPES = [
+        ('DISCOUNT', 'Скидка'),
+        ('SPECIAL', 'Специальное предложение'),
+        ('BUNDLE', 'Комплект'),
+    ]
+
+    title = models.CharField(max_length=200)
+    type = models.CharField(max_length=20, choices=PROMOTION_TYPES)
+    start_date = models.DateTimeField(default=timezone.now)
+    end_date = models.DateTimeField()
+    products = models.ManyToManyField(Product, related_name='promotions')
+    
+    class Meta:
+        ordering = ['-start_date']
+
+    def is_active(self):
+        now = timezone.now()
+        return self.start_date <= now <= self.end_date
