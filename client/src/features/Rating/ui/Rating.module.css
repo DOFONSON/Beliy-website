@@ -1,0 +1,38 @@
+.rating {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.label {
+  color: #666;
+  font-size: 0.875rem;
+}
+
+.stars {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.star {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-size: 1.5rem;
+  line-height: 1;
+  color: #ddd;
+  transition: transform 0.2s;
+}
+
+.star:hover {
+  transform: scale(1.1);
+}
+
+.starIcon {
+  display: block;
+}
+
+.filled {
+  color: #f1c40f;
+} 

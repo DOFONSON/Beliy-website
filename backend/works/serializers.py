@@ -1,5 +1,13 @@
 from rest_framework import serializers
+from django.contrib.auth.models import User
 from .models import Article, Comment, Rating, Author, Product, Place, LiteraryWork
+
+class UserSerializer(serializers.Serializer):
+    id = serializers.IntegerField(read_only=True)
+    username = serializers.CharField(read_only=True)
+    email = serializers.EmailField(read_only=True)
+    first_name = serializers.CharField(read_only=True)
+    last_name = serializers.CharField(read_only=True)
 
 class CommentSerializer(serializers.ModelSerializer):
     user = serializers.StringRelatedField()

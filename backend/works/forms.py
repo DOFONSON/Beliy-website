@@ -5,10 +5,17 @@ from .models import Product, Author, ProductAuthor
 class ProductForm(forms.ModelForm):
     class Meta:
         model = Product
-        fields = ['title', 'price', 'image', 'description', 'category', 'status', 'stock_date']
-        widgets = {
-            'stock_date': forms.DateTimeInput(attrs={'type': 'datetime-local'}),
-        }
+        fields = ['title', 'price', 'image', 'description']
+
+class AuthorForm(forms.ModelForm):
+    class Meta:
+        model = Author
+        fields = ['name', 'bio', 'photo']
+
+class ProductAuthorForm(forms.ModelForm):
+    class Meta:
+        model = ProductAuthor
+        fields = ['author', 'role']
 
 # Создаем формсет для авторов
 ProductAuthorFormSet = inlineformset_factory(

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Container, Grid, Card, CardContent, CardMedia, Typography, Rating } from '@mui/material';
 import axios from 'axios';
+import './ArticleList.css';
 
 interface Article {
   id: number;
@@ -14,54 +14,68 @@ interface Article {
 
 const ArticleList: React.FC = () => {
   const [articles, setArticles] = useState<Article[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchArticles = async () => {
       try {
+        setLoading(true);
         const response = await axios.get('http://localhost:8000/works/api/articles/');
         setArticles(response.data);
+        setError(null);
       } catch (error) {
         console.error('Error fetching articles:', error);
+        setError('Не удалось загрузить статьи. Пожалуйста, попробуйте позже.');
+      } finally {
+        setLoading(false);
       }
     };
 
     fetchArticles();
   }, []);
 
+  if (loading) {
+    return <div className="loading">Загрузка...</div>;
+  }
+
+  if (error) {
+    return <div className="error">{error}</div>;
+  }
+
   return (
-    <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-      <Typography variant="h4" component="h1" gutterBottom>
-        Статьи
-      </Typography>
-      <Grid container spacing={4}>
+    <div className="articles-container">
+      <h1 className="articles-title">Статьи</h1>
+      <div className="articles-grid">
         {articles.map((article) => (
-          <Grid item xs={12} sm={6} md={4} key={article.id}>
-            <Card>
-              <CardMedia
-                component="img"
-                height="200"
-                image={article.image}
-                alt={article.title}
+          <article key={article.id} className="article-card">
+            {article.image && (
+              <img 
+                src={article.image} 
+                alt={article.title} 
+                className="article-image"
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  target.src = '/placeholder.jpg';
+                }}
               />
-              <CardContent>
-                <Typography gutterBottom variant="h5" component="div">
-                  {article.title}
-                </Typography>
-                <Typography variant="body2" color="text.secondary" noWrap>
-                  {article.content}
-                </Typography>
-                {article.average_rating && (
-                  <Rating value={article.average_rating} readOnly precision={0.5} />
-                )}
-                <Typography variant="caption" display="block">
-                  {new Date(article.created_at).toLocaleDateString()}
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
+            )}
+            <div className="article-content">
+              <h2 className="article-title">{article.title}</h2>
+              <p className="article-text">{article.content}</p>
+              {article.average_rating && (
+                <div className="article-rating">
+                  Рейтинг: {article.average_rating.toFixed(1)} ⭐
+                </div>
+              )}
+              <div className="article-date">
+                {new Date(article.created_at).toLocaleDateString('ru-RU')}
+              </div>
+            </div>
+          </article>
         ))}
-      </Grid>
-    </Container>
+      </div>
+    </div>
   );
 };
 

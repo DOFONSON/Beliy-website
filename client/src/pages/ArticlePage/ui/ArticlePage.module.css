@@ -1,0 +1,65 @@
+.articlePage {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+.article {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.articleImage {
+  width: 100%;
+  height: 400px;
+  object-fit: cover;
+}
+
+.articleTitle {
+  font-size: 2.5rem;
+  color: #333;
+  margin: 1.5rem;
+}
+
+.articleMeta {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin: 1.5rem;
+  color: #666;
+}
+
+.articleContent {
+  margin: 1.5rem;
+  line-height: 1.6;
+  color: #444;
+}
+
+.commentsSection {
+  margin: 2rem 1.5rem;
+}
+
+.commentsSection h2 {
+  font-size: 1.5rem;
+  color: #333;
+  margin-bottom: 1rem;
+}
+
+.loading {
+  text-align: center;
+  padding: 2rem;
+  font-size: 1.2rem;
+  color: #666;
+}
+
+.error {
+  text-align: center;
+  padding: 2rem;
+  color: #e74c3c;
+  background: #fde8e7;
+  border-radius: 8px;
+  margin: 2rem auto;
+  max-width: 600px;
+} 
