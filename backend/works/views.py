@@ -1,10 +1,21 @@
-from django.shortcuts import render
+from django.shortcuts import render, get_object_or_404
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView
 from django.views.generic.detail import DetailView
 from django.urls import reverse_lazy
 from django.contrib.auth.mixins import LoginRequiredMixin
-from .models import Product, Author, ProductAuthor
+from .models import Product, Author, ProductAuthor, Article, ArticleRating, Place, LiteraryWork
 from .forms import ProductForm, AuthorForm
+from django.http import JsonResponse
+from django.contrib.auth.decorators import login_required
+from django.views.decorators.http import require_POST
+from rest_framework import viewsets
+from rest_framework.permissions import IsAuthenticatedOrReadOnly
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from .serializers import (
+    ArticleSerializer, ProductSerializer, AuthorSerializer,
+    PlaceSerializer, LiteraryWorkSerializer, CommentSerializer
+)
 
 # Create your views here.
 
@@ -52,7 +63,6 @@ class ProductDeleteView(LoginRequiredMixin, DeleteView):
     template_name = 'works/product_confirm_delete.html'
     success_url = reverse_lazy('product-list')
 
-# Создадим формы для работы с авторами
 from django import forms
 
 class AuthorForm(forms.ModelForm):
@@ -65,4 +75,72 @@ class ProductAuthorForm(forms.ModelForm):
         model = ProductAuthor
         fields = ['author', 'role']
 
-# Создадим шаблоны для работы с формами
+
+@login_required
+@require_POST
+def rate_article(request, article_id):
+    article = get_object_or_404(Article, id=article_id)
+    rating_value = request.POST.get('rating')
+    
+    if not rating_value or not rating_value.isdigit():
+        return JsonResponse({'error': 'Неверное значение оценки'}, status=400)
+    
+    rating_value = int(rating_value)
+    if not 1 <= rating_value <= 5:
+        return JsonResponse({'error': 'Оценка должна быть от 1 до 5'}, status=400)
+    
+    rating, created = ArticleRating.objects.update_or_create(
+        article=article,
+        user=request.user,
+        defaults={'value': rating_value}
+    )
+    
+    return JsonResponse({
+        'success': True,
+        'average_rating': article.get_average_rating(),
+        'rating_count': article.get_rating_count()
+    })
+
+class ArticleViewSet(viewsets.ModelViewSet):
+    queryset = Article.objects.all().order_by('-created_at')
+    serializer_class = ArticleSerializer
+    permission_classes = [IsAuthenticatedOrReadOnly]
+    lookup_field = 'slug'
+
+class ProductViewSet(viewsets.ModelViewSet):
+    queryset = Product.objects.all().order_by('-created_at')
+    serializer_class = ProductSerializer
+    permission_classes = [IsAuthenticatedOrReadOnly]
+
+class AuthorViewSet(viewsets.ModelViewSet):
+    queryset = Author.objects.all()
+    serializer_class = AuthorSerializer
+    permission_classes = [IsAuthenticatedOrReadOnly]
+
+class PlaceViewSet(viewsets.ModelViewSet):
+    queryset = Place.objects.all()
+    serializer_class = PlaceSerializer
+    permission_classes = [IsAuthenticatedOrReadOnly]
+
+class LiteraryWorkViewSet(viewsets.ModelViewSet):
+    queryset = LiteraryWork.objects.all().order_by('-created_at')
+    serializer_class = LiteraryWorkSerializer
+    permission_classes = [IsAuthenticatedOrReadOnly]
+
+    @action(detail=True, methods=['post'])
+    def rate(self, request, pk=None):
+        work = self.get_object()
+        rating_value = request.data.get('rating')
+        
+        if not rating_value or not isinstance(rating_value, int) or not 1 <= rating_value <= 5:
+            return Response({'error': 'Invalid rating value'}, status=400)
+        
+        rating, _ = work.ratings.update_or_create(
+            user=request.user,
+            defaults={'value': rating_value}
+        )
+        
+        return Response({
+            'success': True,
+            'average_rating': work.get_average_rating()
+        })

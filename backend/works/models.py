@@ -43,9 +43,9 @@ class Comment(models.Model):
 # 4. Статья
 class Article(models.Model):
     title = models.CharField(max_length=200)
-    slug = models.SlugField(max_length=200, unique=True, blank=True)  # Добавлено поле
-    image = models.ImageField(upload_to='articles/')
-    content = models.TextField()
+    slug = models.SlugField(max_length=200, unique=True, blank=True)
+    image = models.ImageField(upload_to='articles/', null=True, blank=True)
+    content = models.TextField(blank=True)
     
     ratings = GenericRelation(Rating)
     comments = GenericRelation(Comment)
@@ -62,9 +62,9 @@ class Article(models.Model):
 class Product(models.Model):
     title = models.CharField(max_length=200)
     price = models.DecimalField(max_digits=10, decimal_places=2)
-    image = models.ImageField(upload_to='products/')
-    description = models.TextField()
-    created_at = models.DateTimeField(auto_now_add=True)  # Добавлено поле
+    image = models.ImageField(upload_to='products/', null=True, blank=True)
+    description = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
 
     ratings = GenericRelation(Rating)
     comments = GenericRelation(Comment)
@@ -148,7 +148,7 @@ class ProductAuthor(models.Model):
 
 class Author(models.Model):
     name = models.CharField(max_length=200)
-    bio = models.TextField()
+    bio = models.TextField(blank=True)
     photo = models.ImageField(upload_to='authors/', null=True, blank=True)
     products = models.ManyToManyField(
         'Product',

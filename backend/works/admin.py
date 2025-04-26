@@ -2,11 +2,9 @@ from django.contrib import admin
 from django.contrib.contenttypes.admin import GenericTabularInline
 from .models import *
 
-# Общие настройки для админки
 admin.site.site_header = "Администрирование сайта Андрея Белого"
 admin.site.index_title = "Управление контентом"
 
-# Инлайн-администрирование для оценок и комментариев
 class RatingInline(GenericTabularInline):
     model = Rating
     extra = 0
@@ -19,7 +17,6 @@ class CommentInline(GenericTabularInline):
     fields = ['user', 'text', 'created_at']
     readonly_fields = ['created_at']
 
-# Модель пользователя
 @admin.register(User)
 class UserAdmin(admin.ModelAdmin):
     list_display = ('username', 'email', 'date_joined', 'is_staff')
@@ -31,7 +28,6 @@ class UserAdmin(admin.ModelAdmin):
         ('Права доступа', {'fields': ('is_active', 'is_staff', 'is_superuser', 'groups')}),
     )
 
-# Модель статьи
 @admin.register(Article)
 class ArticleAdmin(admin.ModelAdmin):
     list_display = ('title', 'created_at', 'updated_at')
@@ -43,7 +39,6 @@ class ArticleAdmin(admin.ModelAdmin):
     slug = models.SlugField(blank=True, unique=True)
     
 
-# Модель товара
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
     list_editable = ('price',)
@@ -62,7 +57,6 @@ class ProductAdmin(admin.ModelAdmin):
         return obj.created_at.strftime("%d.%m.%Y %H:%M")
     created_at_field.short_description = 'Дата добавления'
 
-# Модель корзины
 class CartItemInline(admin.TabularInline):
     model = CartItem
     extra = 0
@@ -79,7 +73,6 @@ class CartAdmin(admin.ModelAdmin):
         return obj.total
     total_sum.short_description = 'Общая сумма'
 
-# Модель места
 @admin.register(Place)
 class PlaceAdmin(admin.ModelAdmin):
     list_display = ('title', 'address', 'average_rating')
@@ -90,7 +83,6 @@ class PlaceAdmin(admin.ModelAdmin):
         return obj.ratings.aggregate(Avg('value'))['value__avg']
     average_rating.short_description = 'Средний рейтинг'
 
-# Модель произведения
 @admin.register(LiteraryWork)
 class LiteraryWorkAdmin(admin.ModelAdmin):
     list_display = ('title', 'created_at', 'comment_count')
@@ -101,7 +93,6 @@ class LiteraryWorkAdmin(admin.ModelAdmin):
         return obj.comments.count()
     comment_count.short_description = 'Комментарии'
 
-# Дополнительные модели
 @admin.register(Rating)
 class RatingAdmin(admin.ModelAdmin):
     list_display = ('user', 'value', 'content_object', 'created_at')

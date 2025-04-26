@@ -41,22 +41,23 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'graphene_django', 
-    'corsheaders', 
+    'graphene_django',
+    'corsheaders',
     'works.apps.WorksConfig',  # Используем явное указание конфигурации
+    'rest_framework',
 ]
 
 
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
+    'django.middleware.common.CommonMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
-    'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.locale.LocaleMiddleware',
 ]
 
@@ -86,14 +87,11 @@ WSGI_APPLICATION = 'core.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'bely_db',
-        'USER': 'bely_user',
-        'PASSWORD': 'bely_pass',
-        'HOST': 'postgres',  # Имя сервиса из docker-compose
-        'PORT': '5432',
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
+
 # Password validation
 # https://docs.djangoproject.com/en/5.0/ref/settings/#auth-password-validators
 
@@ -112,8 +110,17 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-GRAPHENE = {'SCHEMA': 'core.schema.schema'}
-CORS_ORIGIN_ALLOW_ALL = True
+# Разрешаем CORS для разработки
+CORS_ALLOW_ALL_ORIGINS = True  # Только для разработки!
+# Для продакшена используйте:
+# CORS_ALLOWED_ORIGINS = [
+#     "http://localhost:3000",
+#     "http://127.0.0.1:3000",
+# ]
+
+GRAPHENE = {
+    "SCHEMA": "core.schema.schema"
+}
 
 
 # Internationalization
