@@ -3,24 +3,24 @@ from django.views.generic import ListView, CreateView, UpdateView, DeleteView
 from django.views.generic.detail import DetailView
 from django.urls import reverse_lazy
 from django.contrib.auth.mixins import LoginRequiredMixin
-from .models import Product, Author, ProductAuthor, Article, Rating, Place, LiteraryWork
+from .models import Product, Author, ProductAuthor, Article, Rating, Place, LiteraryWork, User, UserProfile
 from .forms import ProductForm, AuthorForm, ProductAuthorForm
 from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST
 from rest_framework import viewsets, status
 from rest_framework.permissions import IsAuthenticatedOrReadOnly, AllowAny, IsAuthenticated
-from rest_framework.decorators import action, api_view, permission_classes
+from rest_framework.decorators import action, api_view, permission_classes, parser_classes
 from rest_framework.response import Response
 from .serializers import (
     ArticleSerializer, ProductSerializer, AuthorSerializer,
-    PlaceSerializer, LiteraryWorkSerializer, CommentSerializer, UserSerializer
+    PlaceSerializer, LiteraryWorkSerializer, CommentSerializer, UserSerializer, UserProfileSerializer
 )
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.auth import authenticate
-from django.contrib.auth.models import User
 from rest_framework_simplejwt.tokens import RefreshToken
 import logging
+from rest_framework.parsers import MultiPartParser, FormParser
 
 logger = logging.getLogger(__name__)
 
@@ -75,7 +75,7 @@ class ProductDeleteView(LoginRequiredMixin, DeleteView):
 def rate_article(request, article_id):
     article = get_object_or_404(Article, id=article_id)
     rating_value = request.POST.get('rating')
-    
+    print(request)
     if not rating_value or not rating_value.isdigit():
         return JsonResponse({'error': 'Неверное значение оценки'}, status=400)
     
@@ -161,7 +161,7 @@ class ArticleViewSet(viewsets.ModelViewSet):
         
         return Response({
             'success': True,
-            'average_rating': article.get_average_rating(),
+            'average_rating': article.get_average_rating,
             'rating_count': article.ratings.count()
         })
 
@@ -206,28 +206,40 @@ class LiteraryWorkViewSet(viewsets.ModelViewSet):
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def login_view(request):
-    username = request.data.get('username')
-    password = request.data.get('password')
+    try:
+        username = request.data.get('username')
+        password = request.data.get('password')
 
-    if not username or not password:
+        if not username or not password:
+            return Response(
+                {'error': 'Пожалуйста, укажите имя пользователя и пароль'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        user = authenticate(username=username, password=password)
+
+        if user is not None:
+            # Создаем профиль пользователя, если его нет
+            UserProfile.objects.get_or_create(user=user)
+            
+            refresh = RefreshToken.for_user(user)
+            serializer = UserSerializer(user, context={'request': request})
+            
+            return Response({
+                'access': str(refresh.access_token),
+                'refresh': str(refresh),
+                'user': serializer.data
+            })
+        else:
+            return Response(
+                {'error': 'Неверное имя пользователя или пароль'},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+    except Exception as e:
+        logger.error(f"Login error: {str(e)}")
         return Response(
-            {'error': 'Пожалуйста, укажите имя пользователя и пароль'},
-            status=status.HTTP_400_BAD_REQUEST
-        )
-
-    user = authenticate(username=username, password=password)
-
-    if user is not None:
-        refresh = RefreshToken.for_user(user)
-        return Response({
-            'access': str(refresh.access_token),
-            'refresh': str(refresh),
-            'user': UserSerializer(user).data
-        })
-    else:
-        return Response(
-            {'error': 'Неверное имя пользователя или пароль'},
-            status=status.HTTP_401_UNAUTHORIZED
+            {'error': 'Произошла ошибка при входе'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
 
 @api_view(['POST'])
@@ -236,10 +248,12 @@ def register_view(request):
     username = request.data.get('username')
     email = request.data.get('email')
     password = request.data.get('password')
+    first_name = request.data.get('first_name', '')
+    last_name = request.data.get('last_name', '')
 
     if not username or not email or not password:
         return Response(
-            {'message': 'Пожалуйста, заполните все поля'},
+            {'message': 'Пожалуйста, заполните все обязательные поля'},
             status=status.HTTP_400_BAD_REQUEST
         )
 
@@ -258,20 +272,51 @@ def register_view(request):
     user = User.objects.create_user(
         username=username,
         email=email,
-        password=password
+        password=password,
+        first_name=first_name,
+        last_name=last_name
     )
 
+    # Создаем профиль пользователя
+    UserProfile.objects.create(user=user)
+
     refresh = RefreshToken.for_user(user)
+    serializer = UserSerializer(user, context={'request': request})
+    
     return Response({
-        'token': str(refresh.access_token),
-        'user': UserSerializer(user).data
+        'access': str(refresh.access_token),
+        'refresh': str(refresh),
+        'user': serializer.data
     }, status=status.HTTP_201_CREATED)
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def check_auth(request):
     return Response({
-        'authenticated': request.user.is_authenticated,
-        'username': request.user.username,
-        'headers': dict(request.headers)
+        'authenticated': True,
+        'user': UserSerializer(request.user).data
     })
+
+@api_view(['GET', 'PUT', 'PATCH'])
+@permission_classes([IsAuthenticated])
+@parser_classes([MultiPartParser, FormParser])
+def profile_view(request):
+    user = request.user
+    if request.method == 'GET':
+        serializer = UserSerializer(user, context={'request': request})
+        return Response(serializer.data)
+    elif request.method in ['PUT', 'PATCH']:
+        # Обновляем данные пользователя
+        user_serializer = UserSerializer(user, data=request.data, partial=(request.method == 'PATCH'), context={'request': request})
+        if user_serializer.is_valid():
+            user_serializer.save()
+            
+            # Обновляем профиль пользователя
+            profile, created = UserProfile.objects.get_or_create(user=user)
+            profile_serializer = UserProfileSerializer(profile, data=request.data, partial=(request.method == 'PATCH'))
+            if profile_serializer.is_valid():
+                profile_serializer.save()
+            
+            # Возвращаем обновленные данные пользователя с контекстом запроса
+            return Response(UserSerializer(user, context={'request': request}).data)
+        return Response(user_serializer.errors, status=400)

@@ -4,15 +4,33 @@ from django.contrib.contenttypes.fields import GenericForeignKey, GenericRelatio
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.auth.models import AbstractUser
 from django.utils import timezone
+import os
+from django.utils.text import slugify
+from django.core.validators import MinValueValidator, MaxValueValidator
+
+def user_avatar_path(instance, filename):
+    # Получаем расширение файла
+    ext = filename.split('.')[-1]
+    # Формируем имя файла: avatars/user_id_timestamp.extension
+    filename = f'user_{instance.id}_{int(timezone.now().timestamp())}.{ext}'
+    return os.path.join('avatars', filename)
 
 # 1. Пользователь (расширяем стандартную модель)
 class User(AbstractUser):
     email = models.EmailField(unique=True)
-    avatar = models.ImageField(upload_to='avatars/', null=True, blank=True)
+    first_name = models.CharField(max_length=30, blank=True)
+    last_name = models.CharField(max_length=30, blank=True)
+    avatar = models.ImageField(upload_to=user_avatar_path, null=True, blank=True)
     
     @property
     def cart(self):
         return self.carts.filter(is_active=True).first()
+
+    def get_full_name(self):
+        return f"{self.first_name} {self.last_name}".strip() or self.username
+
+    def get_short_name(self):
+        return self.first_name or self.username
 
 # 2. Оценка (общая для всех сущностей)
 class Rating(models.Model):
@@ -42,6 +60,10 @@ class Comment(models.Model):
 
 # 4. Статья
 class Article(models.Model):
+    @property
+    def get_average_rating(self):
+        from django.db.models import Avg
+        return self.ratings.aggregate(average=Avg('value'))['average'] or 0
     title = models.CharField(max_length=200)
     slug = models.SlugField(max_length=200, unique=True, blank=True)
     image = models.ImageField(upload_to='articles/', null=True, blank=True)
@@ -163,3 +185,16 @@ class Author(models.Model):
 
     def __str__(self):
         return self.name
+
+class UserProfile(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
+    bio = models.TextField(max_length=500, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.user.username}'s profile"
+
+    class Meta:
+        verbose_name = 'Профиль пользователя'
+        verbose_name_plural = 'Профили пользователей'

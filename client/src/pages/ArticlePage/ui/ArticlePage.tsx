@@ -54,6 +54,7 @@ export const ArticlePage = () => {
     try {
       const response = await api.post(`/articles/${article?.id}/rate/`, {
         rating: value,
+        token: localStorage.getItem('token')
       });
       setArticle(prev => prev ? { ...prev, average_rating: response.data.average_rating } : null);
     } catch (err) {

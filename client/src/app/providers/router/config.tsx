@@ -3,6 +3,7 @@ import { ArticleList } from '@/pages/ArticleList';
 import { ArticlePage } from '@/pages/ArticlePage';
 import { LoginPage } from '@/pages/LoginPage';
 import { RegisterPage } from '@/pages/RegisterPage';
+import { ProfilePage } from '@/pages/ProfilePage';
 import { ProtectedRoute } from './ProtectedRoute';
 
 export enum AppRoutes {
@@ -10,6 +11,7 @@ export enum AppRoutes {
   ARTICLE = 'article',
   LOGIN = 'login',
   REGISTER = 'register',
+  PROFILE = 'profile',
 }
 
 export const RoutePath: Record<AppRoutes, string> = {
@@ -17,6 +19,7 @@ export const RoutePath: Record<AppRoutes, string> = {
   [AppRoutes.ARTICLE]: '/article/:slug',
   [AppRoutes.LOGIN]: '/login',
   [AppRoutes.REGISTER]: '/register',
+  [AppRoutes.PROFILE]: '/profile',
 };
 
 export const routeConfig: RouteObject[] = [
@@ -39,5 +42,13 @@ export const routeConfig: RouteObject[] = [
   {
     path: RoutePath.register,
     element: <RegisterPage />,
+  },
+  {
+    path: RoutePath.profile,
+    element: (
+      <ProtectedRoute>
+        <ProfilePage />
+      </ProtectedRoute>
+    ),
   },
 ]; 

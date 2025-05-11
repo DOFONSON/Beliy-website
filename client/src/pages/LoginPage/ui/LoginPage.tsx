@@ -28,6 +28,8 @@ export const LoginPage = () => {
 
   const onSubmit = async (data: LoginFormData) => {
     const result = await login(data);
+    console.log(result);
+    
     if (result.success) {
       const from = location.state?.from?.pathname || '/';
       navigate(from, { replace: true });

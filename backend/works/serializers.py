@@ -1,13 +1,55 @@
 from rest_framework import serializers
-from django.contrib.auth.models import User
-from .models import Article, Comment, Rating, Author, Product, Place, LiteraryWork
+from .models import (
+    User, Article, Product, Author, Place, LiteraryWork,
+    Comment, Rating, Cart, CartItem, ProductAuthor, UserProfile
+)
+import os
 
-class UserSerializer(serializers.Serializer):
-    id = serializers.IntegerField(read_only=True)
-    username = serializers.CharField(read_only=True)
-    email = serializers.EmailField(read_only=True)
-    first_name = serializers.CharField(read_only=True)
-    last_name = serializers.CharField(read_only=True)
+class UserSerializer(serializers.ModelSerializer):
+    full_name = serializers.SerializerMethodField()
+    avatar_url = serializers.SerializerMethodField()
+    bio = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = ['id', 'username', 'email', 'first_name', 'last_name', 
+                 'full_name', 'avatar_url', 'bio', 'date_joined', 'avatar']
+        read_only_fields = ['id', 'date_joined']
+
+    def get_full_name(self, obj):
+        return obj.get_full_name()
+
+    def get_avatar_url(self, obj):
+        if obj.avatar:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.avatar.url)
+            return obj.avatar.url
+        return None
+
+    def get_bio(self, obj):
+        if hasattr(obj, 'profile'):
+            return obj.profile.bio
+        return None
+
+    def update(self, instance, validated_data):
+        # Обрабатываем аватар отдельно
+        avatar = validated_data.pop('avatar', None)
+        if avatar:
+            # Удаляем старый аватар, если он существует
+            if instance.avatar:
+                try:
+                    os.remove(instance.avatar.path)
+                except (ValueError, OSError):
+                    pass
+            instance.avatar = avatar
+
+        # Обновляем остальные поля
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        
+        instance.save()
+        return instance
 
 class CommentSerializer(serializers.ModelSerializer):
     user = serializers.StringRelatedField()
@@ -87,3 +129,16 @@ class LiteraryWorkSerializer(serializers.ModelSerializer):
         if not ratings:
             return None
         return sum(r.value for r in ratings) / len(ratings)
+
+class UserProfileSerializer(serializers.ModelSerializer):
+    user = UserSerializer(read_only=True)
+
+    class Meta:
+        model = UserProfile
+        fields = ['user', 'bio', 'created_at', 'updated_at']
+        read_only_fields = ['created_at', 'updated_at']
+
+    def update(self, instance, validated_data):
+        instance.bio = validated_data.get('bio', instance.bio)
+        instance.save()
+        return instance

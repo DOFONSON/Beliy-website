@@ -4,7 +4,7 @@ from . import views
 from .views import (
     ProductListView, ProductDetailView, 
     ProductCreateView, ProductUpdateView, ProductDeleteView,
-    rate_article, login_view, register_view
+    rate_article, login_view, register_view, profile_view, check_auth
 )
 
 router = DefaultRouter()
@@ -19,6 +19,8 @@ api_urlpatterns = [
     path('', include(router.urls)),
     path('auth/login/', login_view, name='login'),
     path('auth/register/', register_view, name='register'),
+    path('auth/profile/', profile_view, name='profile'),
+    path('auth/check/', check_auth, name='check-auth'),
 ]
 
 urlpatterns = [

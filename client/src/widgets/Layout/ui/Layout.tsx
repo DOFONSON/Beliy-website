@@ -24,6 +24,9 @@ export const Layout = () => {
                 <span className={styles.username}>
                   {user?.username}
                 </span>
+                <Link to="/profile" className={styles.authLink}>
+                  Профиль
+                </Link>
                 <button
                   onClick={handleLogout}
                   className={styles.logoutButton}
