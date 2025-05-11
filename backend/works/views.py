@@ -3,24 +3,25 @@ from django.views.generic import ListView, CreateView, UpdateView, DeleteView
 from django.views.generic.detail import DetailView
 from django.urls import reverse_lazy
 from django.contrib.auth.mixins import LoginRequiredMixin
-from .models import Product, Author, ProductAuthor, Article, Rating, Place, LiteraryWork, User, UserProfile
+from .models import Product, Author, ProductAuthor, Article, Rating, Place, LiteraryWork, User, UserProfile, Comment, Cart, CartItem
 from .forms import ProductForm, AuthorForm, ProductAuthorForm
 from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST
-from rest_framework import viewsets, status
+from rest_framework import viewsets, status, generics
 from rest_framework.permissions import IsAuthenticatedOrReadOnly, AllowAny, IsAuthenticated
 from rest_framework.decorators import action, api_view, permission_classes, parser_classes
 from rest_framework.response import Response
 from .serializers import (
     ArticleSerializer, ProductSerializer, AuthorSerializer,
-    PlaceSerializer, LiteraryWorkSerializer, CommentSerializer, UserSerializer, UserProfileSerializer
+    PlaceSerializer, LiteraryWorkSerializer, CommentSerializer, UserSerializer, UserProfileSerializer, CartSerializer, CartItemSerializer
 )
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
 import logging
 from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.views import APIView
 
 logger = logging.getLogger(__name__)
 
@@ -320,3 +321,100 @@ def profile_view(request):
             # Возвращаем обновленные данные пользователя с контекстом запроса
             return Response(UserSerializer(user, context={'request': request}).data)
         return Response(user_serializer.errors, status=400)
+
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def delete_comment(request, comment_id):
+    try:
+        comment = Comment.objects.get(id=comment_id)
+    except Comment.DoesNotExist:
+        return Response({'error': 'Comment not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    if not request.user.is_superuser:
+        return Response(
+            {'error': 'You do not have permission to delete this comment'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    comment.delete()
+    return Response(status=status.HTTP_204_NO_CONTENT)
+
+class CartView(generics.RetrieveAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = CartSerializer
+
+    def get_object(self):
+        cart, created = Cart.objects.get_or_create(user=self.request.user)
+        return cart
+
+class AddToCartView(generics.CreateAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = CartItemSerializer
+
+    def create(self, request, *args, **kwargs):
+        product_id = request.data.get('product_id')
+        quantity = int(request.data.get('quantity', 1))
+
+        if not product_id:
+            return Response(
+                {'error': 'Product ID is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        product = get_object_or_404(Product, id=product_id)
+        cart, _ = Cart.objects.get_or_create(user=request.user)
+
+        # Проверяем, есть ли уже такой товар в корзине
+        cart_item, created = CartItem.objects.get_or_create(
+            cart=cart,
+            product=product,
+            defaults={'quantity': quantity}
+        )
+
+        if not created:
+            cart_item.quantity += quantity
+            cart_item.save()
+
+        serializer = self.get_serializer(cart_item)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+class CartItemView(generics.RetrieveUpdateDestroyAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = CartItemSerializer
+    lookup_field = 'id'
+    lookup_url_kwarg = 'item_id'
+
+    def get_queryset(self):
+        return CartItem.objects.filter(cart__user=self.request.user)
+
+class ProductRatingView(generics.CreateAPIView):
+    permission_classes = [IsAuthenticated]
+
+    def create(self, request, *args, **kwargs):
+        product_id = kwargs.get('product_id')
+        rating_value = request.data.get('rating')
+
+        if not rating_value:
+            return Response(
+                {'error': 'Rating value is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        product = get_object_or_404(Product, id=product_id)
+        
+        # Создаем или обновляем рейтинг
+        rating, created = product.ratings.get_or_create(
+            user=request.user,
+            defaults={'value': rating_value}
+        )
+
+        if not created:
+            rating.value = rating_value
+            rating.save()
+
+        # Обновляем средний рейтинг продукта
+        product.update_average_rating()
+
+        return Response({
+            'average_rating': product.average_rating
+        }, status=status.HTTP_201_CREATED)

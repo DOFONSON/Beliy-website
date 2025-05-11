@@ -49,4 +49,34 @@ api.interceptors.response.use(
     
     return Promise.reject(error);
   }
-); 
+);
+
+export const deleteComment = async (commentId: number) => {
+  const response = await api.delete(`/comments/${commentId}/delete/`);
+  return response.data;
+};
+
+export const getCart = async () => {
+  const response = await api.get('/cart/');
+  return response.data;
+};
+
+export const addToCart = async (productId: number, quantity: number = 1) => {
+  const response = await api.post('/cart/add/', {
+    product_id: productId,
+    quantity
+  });
+  return response.data;
+};
+
+export const updateCartItem = async (itemId: number, quantity: number) => {
+  const response = await api.put(`/cart/items/${itemId}/`, {
+    quantity
+  });
+  return response.data;
+};
+
+export const removeFromCart = async (itemId: number) => {
+  const response = await api.delete(`/cart/items/${itemId}/`);
+  return response.data;
+}; 

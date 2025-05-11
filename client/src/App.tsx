@@ -1,19 +1,27 @@
 import React from 'react';
-import { CssBaseline, ThemeProvider, createTheme } from '@mui/material';
-import ArticleList from './components/ArticleList';
-
-const theme = createTheme({
-  palette: {
-    mode: 'light',
-  },
-});
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { Layout } from './widgets/Layout';
+import { LoginPage } from './pages/LoginPage';
+import { RegisterPage } from './pages/RegisterPage';
+import { ProfilePage } from './pages/ProfilePage';
+import { ProductsPage } from './pages/ProductsPage';
+import { ProductPage } from './pages/ProductPage';
+import { CartPage } from './pages/CartPage';
 
 function App() {
   return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
-      <ArticleList />
-    </ThemeProvider>
+    <Router>
+      <Routes>
+        <Route path="/" element={<Layout />}>
+          <Route path="login" element={<LoginPage />} />
+          <Route path="register" element={<RegisterPage />} />
+          <Route path="profile" element={<ProfilePage />} />
+          <Route path="products" element={<ProductsPage />} />
+          <Route path="products/:id" element={<ProductPage />} />
+          <Route path="cart" element={<CartPage />} />
+        </Route>
+      </Routes>
+    </Router>
   );
 }
 

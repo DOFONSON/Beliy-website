@@ -52,11 +52,19 @@ class UserSerializer(serializers.ModelSerializer):
         return instance
 
 class CommentSerializer(serializers.ModelSerializer):
-    user = serializers.StringRelatedField()
+    user = UserSerializer(read_only=True)
+    can_delete = serializers.SerializerMethodField()
     
     class Meta:
         model = Comment
-        fields = ['id', 'user', 'text', 'created_at']
+        fields = ['id', 'user', 'text', 'created_at', 'can_delete']
+        read_only_fields = ['user', 'created_at']
+
+    def get_can_delete(self, obj):
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            return request.user.is_superuser
+        return False
 
 class RatingSerializer(serializers.ModelSerializer):
     user = serializers.StringRelatedField()
@@ -142,3 +150,28 @@ class UserProfileSerializer(serializers.ModelSerializer):
         instance.bio = validated_data.get('bio', instance.bio)
         instance.save()
         return instance
+
+class CartItemSerializer(serializers.ModelSerializer):
+    product_title = serializers.CharField(source='product.title', read_only=True)
+    product_price = serializers.DecimalField(source='product.price', max_digits=10, decimal_places=2, read_only=True)
+    total_price = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
+
+    class Meta:
+        model = CartItem
+        fields = ['id', 'product', 'product_title', 'product_price', 'quantity', 'total_price']
+        read_only_fields = ['id', 'total_price']
+
+    def get_total_price(self, obj):
+        return obj.get_total_price()
+
+class CartSerializer(serializers.ModelSerializer):
+    items = CartItemSerializer(many=True, read_only=True)
+    total_price = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
+
+    class Meta:
+        model = Cart
+        fields = ['id', 'items', 'total_price', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'total_price']
+
+    def get_total_price(self, obj):
+        return obj.get_total_price()

@@ -60,18 +60,18 @@ class ProductAdmin(admin.ModelAdmin):
 class CartItemInline(admin.TabularInline):
     model = CartItem
     extra = 0
-    fields = ('product', 'quantity', 'subtotal')
-    readonly_fields = ('subtotal',)
+    readonly_fields = ['created_at', 'updated_at']
 
-@admin.register(Cart)
 class CartAdmin(admin.ModelAdmin):
-    list_display = ('user', 'created_at', 'total_sum', 'is_active')
-    list_filter = ('is_active',)
+    list_display = ['user', 'created_at', 'updated_at', 'get_total_price']
+    list_filter = ['created_at', 'updated_at']
+    search_fields = ['user__username', 'user__email']
+    readonly_fields = ['created_at', 'updated_at']
     inlines = [CartItemInline]
-    
-    def total_sum(self, obj):
-        return obj.total
-    total_sum.short_description = 'Общая сумма'
+
+    def get_total_price(self, obj):
+        return obj.get_total_price()
+    get_total_price.short_description = 'Total Price'
 
 @admin.register(Place)
 class PlaceAdmin(admin.ModelAdmin):
