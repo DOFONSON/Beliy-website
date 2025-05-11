@@ -17,153 +17,163 @@ interface CartItem {
   total_price: number | null;
 }
 
+interface Cart {
+  id: number;
+  items: CartItem[];
+  total_price: number;
+}
+
 export const CartPage = () => {
-  const { isAuthenticated } = useAuth();
+  const { token } = useAuth();
   const navigate = useNavigate();
   const { refreshCart } = useCart();
-  const [cartItems, setCartItems] = useState<CartItem[]>([]);
+  const [cart, setCart] = useState<Cart | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!isAuthenticated) {
-      navigate('/login');
-      return;
-    }
-
-    const fetchCart = async () => {
-      try {
-        const response = await api.get('/cart/');
-        const items = (response.data.items || []).map((item: any) => ({
-          id: item.id || 0,
-          product: {
-            id: item.product?.id || 0,
-            title: item.product?.title || 'Без названия',
-            price: item.product?.price || 0,
-            image: item.product?.image || null
-          },
-          quantity: item.quantity || 0,
-          total_price: item.total_price || (item.product?.price || 0) * (item.quantity || 0)
-        }));
-        setCartItems(items);
-        setError(null);
-      } catch (err) {
-        setError('Не удалось загрузить корзину');
-        console.error('Error fetching cart:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchCart();
-  }, [isAuthenticated, navigate]);
-
-  const handleQuantityChange = async (itemId: number, newQuantity: number) => {
+  const fetchCart = async () => {
     try {
-      if (newQuantity < 1) {
-        await handleRemoveItem(itemId);
-        return;
-      }
-
-      await api.put(`/cart/items/${itemId}/`, {
-        quantity: newQuantity
+      const response = await api.get('/cart/', {
+        headers: { Authorization: `Bearer ${token}` }
       });
       
-      const response = await api.get('/cart/');
-      const items = (response.data.items || []).map((item: any) => ({
-        id: item.id || 0,
-        product: {
-          id: item.product?.id || 0,
-          title: item.product?.title || 'Без названия',
-          price: item.product?.price || 0,
-          image: item.product?.image || null
-        },
-        quantity: item.quantity || 0,
-        total_price: item.total_price || (item.product?.price || 0) * (item.quantity || 0)
-      }));
-      setCartItems(items);
-      await refreshCart();
+      // Получаем полные данные о продуктах для каждого элемента корзины
+      const cartData = response.data;
+      const itemsWithProducts = await Promise.all(
+        cartData.items.map(async (item: any) => {
+          try {
+            const productResponse = await api.get(`/products/${item.product}/`);
+            return {
+              ...item,
+              product: productResponse.data
+            };
+          } catch (err) {
+            console.error(`Error fetching product ${item.product}:`, err);
+            return item;
+          }
+        })
+      );
+
+      const updatedCart = {
+        ...cartData,
+        items: itemsWithProducts
+      };
+
+      console.log('Updated cart data:', updatedCart);
+      setCart(updatedCart);
+      setError(null);
     } catch (err) {
-      console.error('Error updating cart item:', err);
+      setError('Ошибка при загрузке корзины');
+      console.error('Error fetching cart:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleQuantityChange = async (itemId: number, newQuantity: number) => {
+    if (newQuantity < 1) return;
+
+    try {
+      await api.patch(`/cart/items/${itemId}/`, 
+        { quantity: newQuantity },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      fetchCart();
+    } catch (err) {
+      setError('Ошибка при обновлении количества');
+      console.error('Error updating quantity:', err);
     }
   };
 
   const handleRemoveItem = async (itemId: number) => {
     try {
-      await api.delete(`/cart/items/${itemId}/`);
-      setCartItems(prevItems => prevItems.filter(item => item.id !== itemId));
-      await refreshCart();
+      await api.delete(`/cart/items/${itemId}/`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      fetchCart();
     } catch (err) {
-      console.error('Error removing cart item:', err);
+      setError('Ошибка при удалении товара');
+      console.error('Error removing item:', err);
     }
   };
 
+  useEffect(() => {
+    if (token) {
+      fetchCart();
+    }
+  }, [token]);
+
   if (loading) {
-    return <div className={styles.loading}>Загрузка...</div>;
+    return <div className={styles.loading}>Загрузка корзины...</div>;
   }
 
   if (error) {
     return <div className={styles.error}>{error}</div>;
   }
 
-  if (!cartItems || cartItems.length === 0) {
-    return (
-      <div className={styles.emptyCart}>
-        <h2>Корзина пуста</h2>
-        <p>Добавьте товары в корзину, чтобы оформить заказ</p>
-      </div>
-    );
+  if (!cart || !cart.items || cart.items.length === 0) {
+    return <div className={styles.empty}>Корзина пуста</div>;
   }
 
-  const totalPrice = cartItems.reduce((sum, item) => {
-    const itemPrice = item.total_price || (item.product?.price || 0) * (item.quantity || 0);
-    return sum + itemPrice;
+  console.log('Cart items:', cart.items);
+
+  const totalPrice = cart.items.reduce((sum, item) => {
+    if (!item.product) return sum;
+    const itemPrice = item.total_price ?? (item.product.price * item.quantity);
+    return sum + (itemPrice || 0);
   }, 0);
 
   return (
     <div className={styles.cartPage}>
-      <h1 className={styles.title}>Корзина</h1>
+      <h1>Корзина</h1>
       <div className={styles.cartItems}>
-        {cartItems.map((item) => {
-          const itemPrice = item.total_price || (item.product?.price || 0) * (item.quantity || 0);
+        {cart.items.map((item) => {
+          console.log('Processing item:', item);
+          
+          if (!item.product) {
+            console.log('Skipping item without product:', item);
+            return null;
+          }
+
+          const itemTotalPrice = item.total_price ?? (item.product.price * item.quantity);
+
           return (
             <div key={item.id} className={styles.cartItem}>
-              <div className={styles.itemImage}>
-                {item.product?.image && (
-                  <img
-                    src={item.product.image}
-                    alt={item.product?.title || 'Товар'}
-                    className={styles.image}
+              <div className={styles.productInfo}>
+                {item.product.image && (
+                  <img 
+                    src={item.product.image} 
+                    alt={item.product.title || 'Товар'}
+                    className={styles.productImage}
                   />
                 )}
+                <div className={styles.productDetails}>
+                  <h3>{item.product.title || 'Без названия'}</h3>
+                  <p className={styles.price}>
+                    {item.product.price?.toLocaleString('ru-RU') || '0'} ₽
+                  </p>
+                </div>
               </div>
-              <div className={styles.itemInfo}>
-                <h3 className={styles.itemTitle}>{item.product?.title || 'Без названия'}</h3>
-                <p className={styles.itemPrice}>
-                  {(item.product?.price || 0).toLocaleString('ru-RU')} ₽
-                </p>
-              </div>
-              <div className={styles.itemQuantity}>
-                <button
+              <div className={styles.quantityControls}>
+                <button 
                   onClick={() => handleQuantityChange(item.id, item.quantity - 1)}
-                  className={styles.quantityButton}
+                  disabled={item.quantity <= 1}
                 >
                   -
                 </button>
-                <span>{item.quantity || 0}</span>
-                <button
+                <span>{item.quantity}</span>
+                <button 
                   onClick={() => handleQuantityChange(item.id, item.quantity + 1)}
-                  className={styles.quantityButton}
                 >
                   +
                 </button>
               </div>
               <div className={styles.itemTotal}>
-                {itemPrice.toLocaleString('ru-RU')} ₽
+                {itemTotalPrice?.toLocaleString('ru-RU') || '0'} ₽
               </div>
-              <button
-                onClick={() => handleRemoveItem(item.id)}
+              <button 
                 className={styles.removeButton}
+                onClick={() => handleRemoveItem(item.id)}
               >
                 Удалить
               </button>
@@ -171,13 +181,8 @@ export const CartPage = () => {
           );
         })}
       </div>
-      <div className={styles.cartSummary}>
-        <div className={styles.total}>
-          <span>Итого:</span>
-          <span className={styles.totalPrice}>
-            {totalPrice.toLocaleString('ru-RU')} ₽
-          </span>
-        </div>
+      <div className={styles.cartTotal}>
+        <h2>Итого: {totalPrice?.toLocaleString('ru-RU') || '0'} ₽</h2>
         <button className={styles.checkoutButton}>
           Оформить заказ
         </button>

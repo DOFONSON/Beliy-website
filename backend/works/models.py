@@ -111,10 +111,14 @@ class Cart(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"Cart for {self.user.username}"
+        return f"Корзина пользователя {self.user.username}"
 
     def get_total_price(self):
         return sum(item.get_total_price() for item in self.items.all())
+
+    class Meta:
+        verbose_name = 'Корзина'
+        verbose_name_plural = 'Корзины'
 
 # 7. Элемент корзины
 class CartItem(models.Model):
@@ -131,6 +135,8 @@ class CartItem(models.Model):
         return self.product.price * self.quantity
 
     class Meta:
+        verbose_name = 'Товар в корзине'
+        verbose_name_plural = 'Товары в корзине'
         unique_together = ('cart', 'product')
 
 # 8. Место

@@ -60,18 +60,61 @@ class ProductAdmin(admin.ModelAdmin):
 class CartItemInline(admin.TabularInline):
     model = CartItem
     extra = 0
-    readonly_fields = ['created_at', 'updated_at']
+    readonly_fields = ['created_at', 'updated_at', 'product_title', 'product_price', 'product_image']
+    fields = ['product', 'product_title', 'product_price', 'product_image', 'quantity', 'created_at', 'updated_at']
 
+    def product_title(self, obj):
+        return obj.product.title
+    product_title.short_description = 'Название товара'
+
+    def product_price(self, obj):
+        return f"{obj.product.price} ₽"
+    product_price.short_description = 'Цена'
+
+    def product_image(self, obj):
+        if obj.product.image:
+            return format_html('<img src="{}" width="100" />', obj.product.image.url)
+        return "-"
+    product_image.short_description = 'Изображение'
+    product_image.allow_tags = True
+
+@admin.register(Cart)
 class CartAdmin(admin.ModelAdmin):
-    list_display = ['user', 'created_at', 'updated_at', 'get_total_price']
-    list_filter = ['created_at', 'updated_at']
-    search_fields = ['user__username', 'user__email']
-    readonly_fields = ['created_at', 'updated_at']
+    list_display = ('user', 'is_active', 'created_at', 'updated_at', 'total_price')
+    list_filter = ('is_active', 'created_at')
+    search_fields = ('user__username', 'user__email')
+    readonly_fields = ('created_at', 'updated_at', 'total_price')
     inlines = [CartItemInline]
 
-    def get_total_price(self, obj):
-        return obj.get_total_price()
-    get_total_price.short_description = 'Total Price'
+    def total_price(self, obj):
+        return f"{obj.get_total_price()} ₽"
+    total_price.short_description = 'Общая стоимость'
+
+@admin.register(CartItem)
+class CartItemAdmin(admin.ModelAdmin):
+    list_display = ('cart', 'product_title', 'product_price', 'product_image', 'quantity', 'total_price', 'created_at', 'updated_at')
+    list_filter = ('created_at',)
+    search_fields = ('cart__user__username', 'product__title')
+    readonly_fields = ('created_at', 'updated_at', 'product_title', 'product_price', 'product_image', 'total_price')
+
+    def product_title(self, obj):
+        return obj.product.title
+    product_title.short_description = 'Название товара'
+
+    def product_price(self, obj):
+        return f"{obj.product.price} ₽"
+    product_price.short_description = 'Цена'
+
+    def product_image(self, obj):
+        if obj.product.image:
+            return format_html('<img src="{}" width="100" />', obj.product.image.url)
+        return "-"
+    product_image.short_description = 'Изображение'
+    product_image.allow_tags = True
+
+    def total_price(self, obj):
+        return f"{obj.get_total_price()} ₽"
+    total_price.short_description = 'Общая стоимость'
 
 @admin.register(Place)
 class PlaceAdmin(admin.ModelAdmin):
