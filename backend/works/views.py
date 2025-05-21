@@ -22,6 +22,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 import logging
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.views import APIView
+from django.db.models import Avg, Count, Sum, F, ExpressionWrapper, DecimalField
 
 logger = logging.getLogger(__name__)
 
@@ -170,6 +171,34 @@ class ProductViewSet(viewsets.ModelViewSet):
     queryset = Product.objects.all().order_by('-created_at')
     serializer_class = ProductSerializer
     permission_classes = [IsAuthenticatedOrReadOnly]
+
+    def get_queryset(self):
+        queryset = Product.objects.all()
+        
+        # Example 1: Basic aggregation - count ratings and calculate average
+        queryset = queryset.annotate(
+            total_ratings=Count('ratings'),
+            avg_rating=Avg('ratings__value'),
+            total_comments=Count('comments')
+        )
+        
+        # Example 2: Complex aggregation - calculate total revenue per product
+        queryset = queryset.annotate(
+            total_revenue=ExpressionWrapper(
+                F('price') * Count('cartitem'),
+                output_field=DecimalField()
+            )
+        )
+        
+        # Example 3: Conditional aggregation - count high ratings (4-5 stars)
+        queryset = queryset.annotate(
+            high_ratings_count=Count(
+                'ratings',
+                filter=models.Q(ratings__value__gte=4)
+            )
+        )
+        
+        return queryset
 
 class AuthorViewSet(viewsets.ModelViewSet):
     queryset = Author.objects.all()

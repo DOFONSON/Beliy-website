@@ -7,7 +7,8 @@ from django.utils import timezone
 import os
 from django.utils.text import slugify
 from django.core.validators import MinValueValidator, MaxValueValidator
-from django.db.models import Avg
+from django.db.models import Avg, Count
+from django.urls import reverse
 
 def user_avatar_path(instance, filename):
     # Получаем расширение файла
@@ -75,13 +76,41 @@ class Article(models.Model):
     
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
+    
     class Meta:
-            verbose_name = ('Статья')
-            verbose_name_plural = ('Статьи')
+        verbose_name = ('Статья')
+        verbose_name_plural = ('Статьи')
+        ordering = ['-created_at', 'title']  # Сортировка по дате создания (сначала новые) и затем по заголовку
     def __str__(self):
         return self.title
 
+    def get_absolute_url(self):
+        return reverse('article-detail', kwargs={'slug': self.slug})
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = slugify(self.title)
+        super().save(*args, **kwargs)
+
 # 5. Товар
+class ProductManager(models.Manager):
+    def get_queryset(self):
+        return super().get_queryset().filter(is_active=True)
+    
+    def active(self):
+        return self.get_queryset()
+    
+    def with_high_ratings(self):
+        return self.get_queryset().filter(average_rating__gte=4.0)
+    
+    def recently_added(self):
+        return self.get_queryset().order_by('-created_at')[:5]
+    
+    def with_comments(self):
+        return self.get_queryset().annotate(
+            comment_count=models.Count('comments')
+        ).filter(comment_count__gt=0)
+
 class Product(models.Model):
     title = models.CharField(max_length=200)
     description = models.TextField()
@@ -89,6 +118,9 @@ class Product(models.Model):
     image = models.ImageField(upload_to='products/', null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     average_rating = models.DecimalField(max_digits=3, decimal_places=2, default=0)
+    is_active = models.BooleanField(default=True)
+
+    objects = ProductManager()
 
     ratings = GenericRelation(Rating)
     comments = GenericRelation(Comment)
@@ -102,6 +134,9 @@ class Product(models.Model):
         avg = self.ratings.aggregate(Avg('value'))['value__avg']
         self.average_rating = avg if avg is not None else 0
         self.save()
+
+    def get_absolute_url(self):
+        return reverse('product-detail', kwargs={'pk': self.pk})
 
 # 6. Корзина
 class Cart(models.Model):
