@@ -3,6 +3,7 @@ from django.views.generic import ListView, CreateView, UpdateView, DeleteView
 from django.views.generic.detail import DetailView
 from django.urls import reverse_lazy
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.db import models
 from .models import Product, Author, ProductAuthor, Article, Rating, Place, LiteraryWork, User, UserProfile, Comment, Cart, CartItem
 from .forms import ProductForm, AuthorForm, ProductAuthorForm
 from django.http import JsonResponse
