@@ -27,15 +27,12 @@ from django.db.models import Avg, Count, Sum, F, ExpressionWrapper, DecimalField
 
 logger = logging.getLogger(__name__)
 
-# Create your views here.
-
 class ProductListView(ListView):
     model = Product
     template_name = 'works/product_list.html'
     context_object_name = 'products'
 
     def get_queryset(self):
-        # Используем select_related для оптимизации запросов
         return Product.objects.select_related('category').prefetch_related(
             'authors',
             'comments__user',
@@ -47,9 +44,8 @@ class ProductDetailView(DetailView):
     template_name = 'works/product_detail.html'
 
     def get_queryset(self):
-        # Оптимизируем запросы для детального просмотра
         return Product.objects.select_related('category').prefetch_related(
-            'authors__productauthor_set',  # Загружаем информацию о ролях авторов
+            'authors__productauthor_set', 
             'comments__user',
             'ratings__user'
         )
@@ -112,7 +108,6 @@ class ArticleViewSet(viewsets.ModelViewSet):
         lookup_url_kwarg = self.lookup_url_kwarg or self.lookup_field
         value = self.kwargs[lookup_url_kwarg]
 
-        # Try to get by ID first
         if value.isdigit():
             self.lookup_field = 'id'
             self.kwargs[self.lookup_field] = int(value)
@@ -176,30 +171,41 @@ class ProductViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         queryset = Product.objects.all()
         
-        # Example 1: Basic aggregation - count ratings and calculate average
+        # Добавляем аннотации для дополнительной информации
         queryset = queryset.annotate(
             total_ratings=Count('ratings'),
             avg_rating=Avg('ratings__value'),
             total_comments=Count('comments')
         )
         
-        # Example 2: Complex aggregation - calculate total revenue per product
-        queryset = queryset.annotate(
-            total_revenue=ExpressionWrapper(
-                F('price') * Count('cartitem'),
-                output_field=DecimalField()
-            )
-        )
-        
-        # Example 3: Conditional aggregation - count high ratings (4-5 stars)
-        queryset = queryset.annotate(
-            high_ratings_count=Count(
-                'ratings',
-                filter=models.Q(ratings__value__gte=4)
-            )
-        )
+        # Фильтруем только активные товары
+        queryset = queryset.filter(is_available=True, status='active')
         
         return queryset
+
+    @action(detail=False, methods=['get'])
+    def active_products(self, request):
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['get'])
+    def premium_products(self, request):
+        queryset = self.get_queryset().filter(
+            average_rating__gte=4.0,
+            total_ratings__gte=5
+        )
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['get'])
+    def available_products(self, request):
+        queryset = self.get_queryset().filter(
+            quantity__gt=0,
+            is_available=True
+        )
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
 
 class AuthorViewSet(viewsets.ModelViewSet):
     queryset = Author.objects.all()
@@ -308,7 +314,6 @@ def register_view(request):
         last_name=last_name
     )
 
-    # Создаем профиль пользователя
     UserProfile.objects.create(user=user)
 
     refresh = RefreshToken.for_user(user)
@@ -337,18 +342,15 @@ def profile_view(request):
         serializer = UserSerializer(user, context={'request': request})
         return Response(serializer.data)
     elif request.method in ['PUT', 'PATCH']:
-        # Обновляем данные пользователя
         user_serializer = UserSerializer(user, data=request.data, partial=(request.method == 'PATCH'), context={'request': request})
         if user_serializer.is_valid():
             user_serializer.save()
             
-            # Обновляем профиль пользователя
             profile, created = UserProfile.objects.get_or_create(user=user)
             profile_serializer = UserProfileSerializer(profile, data=request.data, partial=(request.method == 'PATCH'))
             if profile_serializer.is_valid():
                 profile_serializer.save()
             
-            # Возвращаем обновленные данные пользователя с контекстом запроса
             return Response(UserSerializer(user, context={'request': request}).data)
         return Response(user_serializer.errors, status=400)
 
@@ -394,7 +396,6 @@ class AddToCartView(generics.CreateAPIView):
         product = get_object_or_404(Product, id=product_id)
         cart, _ = Cart.objects.get_or_create(user=request.user)
 
-        # Проверяем, есть ли уже такой товар в корзине
         cart_item, created = CartItem.objects.get_or_create(
             cart=cart,
             product=product,
@@ -432,7 +433,6 @@ class ProductRatingView(generics.CreateAPIView):
 
         product = get_object_or_404(Product, id=product_id)
         
-        # Создаем или обновляем рейтинг
         rating, created = product.ratings.get_or_create(
             user=request.user,
             defaults={'value': rating_value}
@@ -442,7 +442,6 @@ class ProductRatingView(generics.CreateAPIView):
             rating.value = rating_value
             rating.save()
 
-        # Обновляем средний рейтинг продукта
         product.update_average_rating()
 
         return Response({

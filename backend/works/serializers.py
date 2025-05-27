@@ -33,10 +33,8 @@ class UserSerializer(serializers.ModelSerializer):
         return None
 
     def update(self, instance, validated_data):
-        # Обрабатываем аватар отдельно
         avatar = validated_data.pop('avatar', None)
         if avatar:
-            # Удаляем старый аватар, если он существует
             if instance.avatar:
                 try:
                     os.remove(instance.avatar.path)
@@ -44,12 +42,16 @@ class UserSerializer(serializers.ModelSerializer):
                     pass
             instance.avatar = avatar
 
-        # Обновляем остальные поля
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         
         instance.save()
         return instance
+
+class AuthorSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Author
+        fields = ['id', 'name', 'bio', 'photo']
 
 class CommentSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
@@ -73,6 +75,38 @@ class RatingSerializer(serializers.ModelSerializer):
         model = Rating
         fields = ['id', 'user', 'value', 'created_at']
 
+class ProductSerializer(serializers.ModelSerializer):
+    comments = CommentSerializer(many=True, read_only=True)
+    ratings = RatingSerializer(many=True, read_only=True)
+    average_rating = serializers.SerializerMethodField()
+    category_name = serializers.CharField(source='category.name', read_only=True)
+    authors = AuthorSerializer(many=True, read_only=True)
+    image_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Product
+        fields = [
+            'id', 'title', 'price', 'image', 'image_url', 'description',
+            'category', 'category_name', 'authors', 'comments', 'ratings',
+            'average_rating', 'created_at', 'updated_at', 'quantity',
+            'is_available', 'status'
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at', 'average_rating']
+
+    def get_average_rating(self, obj):
+        ratings = obj.ratings.all()
+        if not ratings:
+            return 0
+        return sum(r.value for r in ratings) / len(ratings)
+
+    def get_image_url(self, obj):
+        if obj.image:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.image.url)
+            return obj.image.url
+        return None
+
 class ArticleSerializer(serializers.ModelSerializer):
     comments = CommentSerializer(many=True, read_only=True)
     ratings = RatingSerializer(many=True, read_only=True)
@@ -87,26 +121,6 @@ class ArticleSerializer(serializers.ModelSerializer):
         if not ratings:
             return None
         return sum(r.value for r in ratings) / len(ratings)
-
-class ProductSerializer(serializers.ModelSerializer):
-    comments = CommentSerializer(many=True, read_only=True)
-    ratings = RatingSerializer(many=True, read_only=True)
-    average_rating = serializers.SerializerMethodField()
-
-    class Meta:
-        model = Product
-        fields = ['id', 'title', 'price', 'image', 'description', 'comments', 'ratings', 'average_rating', 'created_at']
-
-    def get_average_rating(self, obj):
-        ratings = obj.ratings.all()
-        if not ratings:
-            return None
-        return sum(r.value for r in ratings) / len(ratings)
-
-class AuthorSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Author
-        fields = ['id', 'name', 'bio', 'photo']
 
 class PlaceSerializer(serializers.ModelSerializer):
     comments = CommentSerializer(many=True, read_only=True)

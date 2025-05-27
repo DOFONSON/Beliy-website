@@ -8,8 +8,13 @@ interface Product {
   title: string;
   price: number;
   image: string;
+  image_url: string;
   description: string;
   average_rating: number;
+  category_name: string;
+  quantity: number;
+  is_available: boolean;
+  status: string;
   created_at: string;
 }
 
@@ -22,11 +27,12 @@ export const ProductsPage = () => {
     const fetchProducts = async () => {
       try {
         const response = await api.get('/products/');
+        console.log('Products response:', response.data); // Для отладки
         setProducts(response.data);
         setError(null);
       } catch (err) {
-        setError('Не удалось загрузить товары');
         console.error('Error fetching products:', err);
+        setError('Не удалось загрузить товары. Пожалуйста, попробуйте позже.');
       } finally {
         setLoading(false);
       }
@@ -43,6 +49,10 @@ export const ProductsPage = () => {
     return <div className={styles.error}>{error}</div>;
   }
 
+  if (products.length === 0) {
+    return <div className={styles.noProducts}>Товары не найдены</div>;
+  }
+
   return (
     <div className={styles.productsPage}>
       <h1 className={styles.title}>Товары</h1>
@@ -54,9 +64,9 @@ export const ProductsPage = () => {
             className={styles.productCard}
           >
             <div className={styles.productImage}>
-              {product.image && (
+              {(product.image || product.image_url) && (
                 <img
-                  src={product.image}
+                  src={product.image_url || product.image}
                   alt={product.title}
                   className={styles.image}
                 />
@@ -65,21 +75,22 @@ export const ProductsPage = () => {
             <div className={styles.productContent}>
               <h2 className={styles.productTitle}>{product.title}</h2>
               <p className={styles.productPrice}>
-                {product.price.toLocaleString('ru-RU')} ₽
+                {product.price?.toLocaleString('ru-RU') || '0'} ₽
               </p>
               <p className={styles.productExcerpt}>
-                {product.description.substring(0, 100)}...
+                {product.description?.substring(0, 100)}...
               </p>
               <div className={styles.productMeta}>
-                <time dateTime={product.created_at}>
-                  {new Date(product.created_at).toLocaleDateString('ru-RU')}
-                </time>
+                <span className={styles.category}>{product.category_name}</span>
                 {product.average_rating > 0 && (
                   <span className={styles.rating}>
                     ★ {product.average_rating.toFixed(1)}
                   </span>
                 )}
               </div>
+              {!product.is_available && (
+                <div className={styles.unavailable}>Нет в наличии</div>
+              )}
             </div>
           </Link>
         ))}

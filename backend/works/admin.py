@@ -1,6 +1,17 @@
 from django.contrib import admin
 from django.contrib.contenttypes.admin import GenericTabularInline
+from django.http import HttpResponse
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import letter
+from reportlab.lib import colors
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import inch
+from io import BytesIO
+from django.utils.html import format_html
 from .models import *
+from django.urls import path
+from django.shortcuts import get_object_or_404
 
 admin.site.site_header = "Администрирование сайта Андрея Белого"
 admin.site.index_title = "Управление контентом"
@@ -39,23 +50,127 @@ class ArticleAdmin(admin.ModelAdmin):
     slug = models.SlugField(blank=True, unique=True)
     
 
+class ProductAuthorInline(admin.TabularInline):
+    model = ProductAuthor
+    extra = 1
+    verbose_name = "Автор"
+    verbose_name_plural = "Авторы"
+
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
-    list_editable = ('price',)
+    list_display = ('title', 'price', 'category', 'average_rating', 'is_available', 'status', 'pdf_preview', 'generate_pdf_button')
+    list_filter = ('category', 'is_available', 'status')
     search_fields = ('title', 'description')
-    inlines = [RatingInline, CommentInline]
-    list_display = ('title', 'price', 'created_at') 
-    readonly_fields = ('preview_image',) 
-    def preview_image(self, obj):
-        if obj.image:
-            return format_html('<img src="{}" width="200" />', obj.image.url)
-        return "-"
-    preview_image.short_description = 'Превью изображения'
-    preview_image.allow_tags = True
-    def created_at_field(self, obj):
-        """Кастомный метод для отображения даты создания"""
-        return obj.created_at.strftime("%d.%m.%Y %H:%M")
-    created_at_field.short_description = 'Дата добавления'
+    readonly_fields = ('average_rating', 'created_at', 'updated_at', 'pdf_preview')
+    actions = ['generate_pdf']
+    inlines = [ProductAuthorInline]
+    fieldsets = (
+        ('Основная информация', {
+            'fields': ('title', 'description', 'price', 'category')
+        }),
+        ('Медиафайлы', {
+            'fields': ('image', 'pdf_file', 'pdf_preview')
+        }),
+        ('Статус и наличие', {
+            'fields': ('is_available', 'status', 'quantity')
+        }),
+        ('Рейтинг и даты', {
+            'fields': ('average_rating', 'created_at', 'updated_at')
+        }),
+    )
+
+    def pdf_preview(self, obj):
+        if obj.pdf_file:
+            return format_html(
+                '<a href="{}" target="_blank">Просмотреть PDF</a> | '
+                '<a href="{}" download>Скачать PDF</a>',
+                obj.pdf_file.url,
+                obj.pdf_file.url
+            )
+        return "PDF не загружен"
+    pdf_preview.short_description = 'PDF документ'
+
+    def generate_pdf_button(self, obj):
+        return format_html(
+            '<a class="button" href="{}">Сгенерировать PDF</a>',
+            reverse('admin:generate-product-pdf', args=[obj.pk])
+        )
+    generate_pdf_button.short_description = 'Генерация PDF'
+    generate_pdf_button.allow_tags = True
+
+    def get_urls(self):
+        urls = super().get_urls()
+        custom_urls = [
+            path(
+                '<int:product_id>/generate-pdf/',
+                self.admin_site.admin_view(self.generate_pdf_view),
+                name='generate-product-pdf',
+            ),
+        ]
+        return custom_urls + urls
+
+    def generate_pdf_view(self, request, product_id):
+        product = get_object_or_404(Product, pk=product_id)
+        return product.get_pdf_response()
+
+    def generate_pdf(self, request, queryset):
+        # Создаем буфер для PDF
+        buffer = BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=letter)
+        styles = getSampleStyleSheet()
+        story = []
+
+        # Создаем стиль для заголовка
+        title_style = ParagraphStyle(
+            'CustomTitle',
+            parent=styles['Heading1'],
+            fontSize=24,
+            spaceAfter=30
+        )
+
+        # Создаем стиль для текста
+        text_style = ParagraphStyle(
+            'CustomText',
+            parent=styles['Normal'],
+            fontSize=12,
+            spaceAfter=12
+        )
+
+        for product in queryset:
+            # Добавляем заголовок
+            story.append(Paragraph(f"Информация о продукте: {product.title}", title_style))
+            
+            # Добавляем основную информацию
+            story.append(Paragraph(f"Описание: {product.description}", text_style))
+            story.append(Paragraph(f"Цена: {product.price} ₽", text_style))
+            story.append(Paragraph(f"Категория: {product.category}", text_style))
+            story.append(Paragraph(f"Средний рейтинг: {product.average_rating}", text_style))
+            story.append(Paragraph(f"Статус: {product.status}", text_style))
+            
+            # Добавляем информацию об авторах
+            if product.authors.exists():
+                authors_text = "Авторы: " + ", ".join([author.name for author in product.authors.all()])
+                story.append(Paragraph(authors_text, text_style))
+            
+            # Добавляем отступ между продуктами
+            story.append(Spacer(1, 30))
+
+        # Создаем PDF
+        doc.build(story)
+        buffer.seek(0)
+
+        # Создаем HTTP ответ
+        response = HttpResponse(buffer.getvalue(), content_type='application/pdf')
+        response['Content-Disposition'] = 'attachment; filename="products.pdf"'
+        return response
+
+    generate_pdf.short_description = "Сгенерировать PDF для выбранных продуктов"
+
+    def get_actions(self, request):
+        actions = super().get_actions(request)
+        if 'delete_selected' in actions:
+            del actions['delete_selected']
+        return actions
 
 class CartItemInline(admin.TabularInline):
     model = CartItem
