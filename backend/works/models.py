@@ -96,6 +96,7 @@ class Article(models.Model):
     slug = models.SlugField(max_length=200, unique=True, blank=True)
     image = models.ImageField(upload_to='articles/', null=True, blank=True)
     content = models.TextField(blank=True)
+    source_url = models.URLField(verbose_name="URL источника", null=True, blank=True)
     
     ratings = GenericRelation(Rating)
     comments = GenericRelation(Comment)
@@ -117,6 +118,48 @@ class Article(models.Model):
         if not self.slug:
             self.slug = slugify(self.title)
         super().save(*args, **kwargs)
+
+    @classmethod
+    def search_by_content(cls, query):
+        """Поиск статей по содержимому с использованием __icontains"""
+        return cls.objects.filter(content__icontains=query)
+
+    @classmethod
+    def get_recent_articles_info(cls):
+        """Получение информации о последних статьях с использованием values()"""
+        return cls.objects.order_by('-created_at')[:5].values('title', 'created_at')
+
+    @classmethod
+    def get_article_slugs(cls):
+        """Получение списка slug'ов статей с использованием values_list()"""
+        return cls.objects.values_list('slug', flat=True)
+
+    @classmethod
+    def count_articles_with_comments(cls):
+        """Подсчет статей с комментариями с использованием count()"""
+        return cls.objects.filter(comments__isnull=False).distinct().count()
+
+    @classmethod
+    def check_article_exists(cls, slug):
+        """Проверка существования статьи с использованием exists()"""
+        return cls.objects.filter(slug=slug).exists()
+
+    @classmethod
+    def update_article_slugs(cls):
+        """Обновление slug'ов статей с использованием update()"""
+        articles = cls.objects.all()
+        for article in articles:
+            if not article.slug:
+                article.slug = slugify(article.title)
+                article.save()
+
+    @classmethod
+    def delete_old_articles(cls, days=30):
+        """Удаление старых статей с использованием delete()"""
+        from django.utils import timezone
+        from datetime import timedelta
+        old_date = timezone.now() - timedelta(days=days)
+        return cls.objects.filter(created_at__lt=old_date).delete()
 
 # 5. Товар
 class ProductManager(models.Manager):
@@ -150,9 +193,10 @@ class Product(models.Model):
     price = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Цена")
     image = models.ImageField(upload_to='products/', null=True, blank=True, verbose_name="Изображение")
     pdf_file = models.FileField(upload_to='product_pdfs/', null=True, blank=True, verbose_name="PDF документ")
+    website_url = models.URLField(verbose_name="URL сайта", null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата создания")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="Дата обновления")
-    category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, related_name='products', verbose_name="Категория")
+    category = models.ForeignKey(Category, on_delete=models.CASCADE, null=True, related_name='products', verbose_name="Категория")
     authors = models.ManyToManyField('Author', through='ProductAuthor', related_name='authored_products', verbose_name="Авторы")
     average_rating = models.DecimalField(max_digits=3, decimal_places=2, default=0, verbose_name="Средний рейтинг")
     quantity = models.PositiveIntegerField(default=0, verbose_name="Количество")
@@ -272,6 +316,57 @@ class Product(models.Model):
         response['Content-Disposition'] = f'attachment; filename="product_{self.id}.pdf"'
         return response
 
+    # Демонстрация __icontains
+    @classmethod
+    def search_by_title(cls, query):
+        """Поиск товаров по названию с использованием __icontains"""
+        return cls.objects.filter(title__icontains=query)
+
+    # Демонстрация __contains
+    @classmethod
+    def search_by_description(cls, query):
+        """Поиск товаров по описанию с использованием __contains"""
+        return cls.objects.filter(description__contains=query)
+
+    # Демонстрация values()
+    @classmethod
+    def get_active_products_info(cls):
+        """Получение информации об активных товарах с использованием values()"""
+        return cls.objects.filter(is_available=True).values('title', 'price', 'quantity')
+
+    # Демонстрация values_list()
+    @classmethod
+    def get_product_titles(cls):
+        """Получение списка названий товаров с использованием values_list()"""
+        return cls.objects.values_list('title', flat=True)
+
+    # Демонстрация count()
+    @classmethod
+    def count_available_products(cls):
+        """Подсчет доступных товаров с использованием count()"""
+        return cls.objects.filter(is_available=True).count()
+
+    # Демонстрация exists()
+    @classmethod
+    def check_product_exists(cls, title):
+        """Проверка существования товара с использованием exists()"""
+        return cls.objects.filter(title=title).exists()
+
+    # Демонстрация update()
+    @classmethod
+    def mark_out_of_stock(cls, product_ids):
+        """Обновление статуса товаров на 'нет в наличии' с использованием update()"""
+        return cls.objects.filter(id__in=product_ids).update(
+            status='out_of_stock',
+            is_available=False
+        )
+
+    # Демонстрация delete()
+    @classmethod
+    def delete_draft_products(cls):
+        """Удаление черновиков товаров с использованием delete()"""
+        return cls.objects.filter(status='draft').delete()
+
 # 6. Корзина
 class Cart(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='carts')
@@ -385,3 +480,64 @@ class UserProfile(models.Model):
     class Meta:
         verbose_name = 'Профиль пользователя'
         verbose_name_plural = 'Профили пользователей'
+
+class Resource(models.Model):
+    """Модель для демонстрации различных возможностей Django ORM"""
+    name = models.CharField(max_length=200, verbose_name="Название")
+    url = models.URLField(verbose_name="URL ресурса")
+    description = models.TextField(verbose_name="Описание")
+    tags = models.CharField(max_length=500, verbose_name="Теги", help_text="Теги через запятую")
+    is_active = models.BooleanField(default=True, verbose_name="Активен")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата создания")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Дата обновления")
+
+    class Meta:
+        verbose_name = "Ресурс"
+        verbose_name_plural = "Ресурсы"
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return self.name
+
+    @classmethod
+    def search_by_description(cls, query):
+        """Поиск по описанию с использованием __icontains"""
+        return cls.objects.filter(description__icontains=query)
+
+    @classmethod
+    def search_by_tags(cls, tag):
+        """Поиск по тегам с использованием __contains"""
+        return cls.objects.filter(tags__contains=tag)
+
+    @classmethod
+    def get_active_resources(cls):
+        """Получение активных ресурсов с использованием values()"""
+        return cls.objects.filter(is_active=True).values('name', 'url')
+
+    @classmethod
+    def get_resource_names(cls):
+        """Получение только имен ресурсов с использованием values_list()"""
+        return cls.objects.values_list('name', flat=True)
+
+    @classmethod
+    def count_active_resources(cls):
+        """Подсчет активных ресурсов с использованием count()"""
+        return cls.objects.filter(is_active=True).count()
+
+    @classmethod
+    def check_resource_exists(cls, name):
+        """Проверка существования ресурса с использованием exists()"""
+        return cls.objects.filter(name=name).exists()
+
+    @classmethod
+    def deactivate_old_resources(cls, days=30):
+        """Деактивация старых ресурсов с использованием update()"""
+        from django.utils import timezone
+        from datetime import timedelta
+        old_date = timezone.now() - timedelta(days=days)
+        return cls.objects.filter(created_at__lt=old_date).update(is_active=False)
+
+    @classmethod
+    def delete_inactive_resources(cls):
+        """Удаление неактивных ресурсов с использованием delete()"""
+        return cls.objects.filter(is_active=False).delete()

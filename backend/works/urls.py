@@ -15,7 +15,6 @@ router.register(r'authors', views.AuthorViewSet)
 router.register(r'places', views.PlaceViewSet)
 router.register(r'literary-works', views.LiteraryWorkViewSet)
 
-# API URLs
 api_urlpatterns = [
     path('', include(router.urls)),
     path('auth/login/', login_view, name='login'),
@@ -23,11 +22,9 @@ api_urlpatterns = [
     path('auth/profile/', profile_view, name='profile'),
     path('auth/check/', check_auth, name='check-auth'),
     path('comments/<int:comment_id>/delete/', views.delete_comment, name='delete-comment'),
-    # Cart endpoints
     path('cart/', CartView.as_view(), name='cart'),
     path('cart/add/', AddToCartView.as_view(), name='add-to-cart'),
     path('cart/items/<int:item_id>/', CartItemView.as_view(), name='cart-item'),
-    # Product rating endpoint
     path('products/<int:product_id>/rate/', views.ProductRatingView.as_view(), name='product_rate'),
 ]
 
