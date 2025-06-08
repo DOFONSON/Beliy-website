@@ -9,12 +9,14 @@ class UserSerializer(serializers.ModelSerializer):
     full_name = serializers.SerializerMethodField()
     avatar_url = serializers.SerializerMethodField()
     bio = serializers.SerializerMethodField()
+    comments_count = serializers.IntegerField(read_only=True)
 
     class Meta:
         model = User
         fields = ['id', 'username', 'email', 'first_name', 'last_name', 
-                 'full_name', 'avatar_url', 'bio', 'date_joined', 'avatar']
-        read_only_fields = ['id', 'date_joined']
+                 'full_name', 'avatar_url', 'bio', 'date_joined', 'avatar',
+                 'comments_count']
+        read_only_fields = ['id', 'date_joined', 'comments_count']
 
     def get_full_name(self, obj):
         return obj.get_full_name()

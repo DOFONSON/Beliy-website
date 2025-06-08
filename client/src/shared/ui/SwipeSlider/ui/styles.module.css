@@ -1,0 +1,131 @@
+.swipeSliderContainer {
+  margin-bottom: 3rem;
+  padding: 1rem;
+  position: relative;
+}
+
+.sliderHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.sliderTitle {
+  font-size: 1.8rem;
+  color: #333;
+  margin: 0;
+}
+
+.sliderControls {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.sliderButton {
+  background: #3498db;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  font-size: 1.2rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s ease-in-out;
+}
+
+.sliderButton:hover {
+  background: #2980b9;
+}
+
+.sliderContent {
+  display: flex;
+  gap: 2rem;
+  padding: 1rem;
+  overflow: hidden;
+  position: relative;
+}
+
+.sliderItem {
+  flex: 0 0 calc(33.333% - 1.33rem);
+  text-decoration: none;
+  color: inherit;
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease-in-out;
+  transform: scale(0.9);
+  opacity: 0.7;
+}
+
+.activeItem {
+  transform: scale(1);
+  opacity: 1;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.itemImageContainer {
+  position: relative;
+  padding-top: 60%;
+}
+
+.itemImage {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.rating {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: rgba(0, 0, 0, 0.7);
+  color: #ffc107;
+  padding: 0.3rem 0.6rem;
+  border-radius: 4px;
+  font-weight: bold;
+}
+
+.itemTitle {
+  margin: 0;
+  padding: 1rem;
+  font-size: 1.1rem;
+  color: #333;
+}
+
+.itemPrice {
+  padding: 0 1rem 1rem;
+  color: #2c3e50;
+  font-weight: bold;
+  font-size: 1.2rem;
+}
+
+.sliderDots {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 1.5rem;
+}
+
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #ccc;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: background-color 0.2s ease-in-out;
+}
+
+.activeDot {
+  background: #3498db;
+  transform: scale(1.2);
+} 

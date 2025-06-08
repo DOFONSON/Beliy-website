@@ -447,3 +447,18 @@ class ProductRatingView(generics.CreateAPIView):
         return Response({
             'average_rating': product.average_rating
         }, status=status.HTTP_201_CREATED)
+
+class UserViewSet(viewsets.ModelViewSet):
+    queryset = User.objects.all()
+    serializer_class = UserSerializer
+    permission_classes = [IsAuthenticatedOrReadOnly]
+
+    @action(detail=False, methods=['get'])
+    def active(self, request):
+        # Получаем пользователей с количеством их комментариев
+        users = User.objects.annotate(
+            comments_count=Count('comment')
+        ).order_by('-comments_count')[:9]  # Получаем топ-9 пользователей
+        
+        serializer = self.get_serializer(users, many=True)
+        return Response(serializer.data)

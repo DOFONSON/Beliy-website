@@ -14,6 +14,7 @@ router.register(r'products', views.ProductViewSet)
 router.register(r'authors', views.AuthorViewSet)
 router.register(r'places', views.PlaceViewSet)
 router.register(r'literary-works', views.LiteraryWorkViewSet)
+router.register(r'users', views.UserViewSet)
 
 api_urlpatterns = [
     path('', include(router.urls)),

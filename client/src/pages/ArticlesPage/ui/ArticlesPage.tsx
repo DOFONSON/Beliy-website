@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { api } from '@/shared/api';
+import { Slider } from '@/shared/ui/Slider/ui/Slider';
+import { SwipeSlider } from '@/shared/ui/SwipeSlider/ui/SwipeSlider';
+import { ActiveUsersList } from '@/shared/ui/ActiveUsersList/ui/ActiveUsersList';
 import styles from './ArticlesPage.module.css';
 
 interface Article {
@@ -13,33 +16,68 @@ interface Article {
   created_at: string;
 }
 
+interface Product {
+  id: number;
+  title: string;
+  image: string;
+  price: number;
+  average_rating: number;
+}
+
+interface User {
+  id: number;
+  username: string;
+  avatar_url: string;
+  comments_count: number;
+}
+
 export const ArticlesPage = () => {
   const [articles, setArticles] = useState<Article[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchParams] = useSearchParams();
   const searchQuery = searchParams.get('q') || '';
 
   useEffect(() => {
-    const fetchArticles = async () => {
+    const fetchData = async () => {
       try {
-        const response = await api.get('/articles/');
-        setArticles(response.data);
+        const [articlesResponse, productsResponse, usersResponse] = await Promise.all([
+          api.get('/articles/'),
+          api.get('/products/'),
+          api.get('/users/active/')
+        ]);
+        setArticles(articlesResponse.data);
+        setProducts(productsResponse.data);
+        setUsers(usersResponse.data);
         setError(null);
       } catch (err) {
-        setError('Не удалось загрузить статьи');
-        console.error('Error fetching articles:', err);
+        setError('Не удалось загрузить данные');
+        console.error('Error fetching data:', err);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchArticles();
+    fetchData();
   }, []);
 
   const filteredArticles = articles.filter(article =>
     article.title.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  const topRatedArticles = [...articles]
+    .sort((a, b) => b.average_rating - a.average_rating)
+    .slice(0, 8);
+
+  const topRatedProducts = [...products]
+    .sort((a, b) => b.average_rating - a.average_rating)
+    .slice(0, 8);
+
+  const activeUsers = [...users]
+    .sort((a, b) => b.comments_count - a.comments_count)
+    .slice(0, 9);
 
   if (loading) {
     return <div className={styles.loading}>Загрузка...</div>;
@@ -51,7 +89,21 @@ export const ArticlesPage = () => {
 
   return (
     <div className={styles.articlesPage}>
-      <h1 className={styles.title}>Статьи</h1>
+      <SwipeSlider
+        title="Популярные статьи"
+        items={topRatedArticles}
+        type="article"
+      />
+      
+      <Slider
+        title="Популярные товары"
+        items={topRatedProducts}
+        type="product"
+      />
+
+      <ActiveUsersList users={activeUsers} />
+
+      <h1 className={styles.title}>Все статьи</h1>
       {searchQuery && (
         <div className={styles.searchResults}>
           Результаты поиска по запросу: "{searchQuery}"
