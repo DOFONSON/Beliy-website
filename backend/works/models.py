@@ -60,7 +60,6 @@ class User(AbstractUser):
     def get_short_name(self):
         return self.first_name or self.username
 
-# 2. Оценка (общая для всех сущностей)
 class Rating(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     value = models.PositiveSmallIntegerField(choices=[(i, i) for i in range(1, 6)])
@@ -73,7 +72,6 @@ class Rating(models.Model):
                 verbose_name_plural = ('Оценки')
     created_at = models.DateTimeField(default=timezone.now)
 
-# 3. Комментарий (общий для всех сущностей)
 class Comment(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     text = models.TextField(max_length=2000)
@@ -86,7 +84,6 @@ class Comment(models.Model):
             verbose_name_plural = ('Комментарии')
     created_at = models.DateTimeField(default=timezone.now)
 
-# 4. Статья
 class Article(models.Model):
     @property
     def get_average_rating(self):
@@ -250,11 +247,9 @@ class Product(models.Model):
             spaceAfter=12
         )
 
-        # Добавляем заголовок
         story.append(Paragraph(f"Информация о продукте: {self.title}", title_style))
         story.append(Spacer(1, 20))
 
-        # Добавляем изображение, если оно есть
         if self.image:
             try:
                 img = Image(self.image.path, width=400, height=300)
@@ -263,7 +258,6 @@ class Product(models.Model):
             except:
                 pass
 
-        # Основная информация
         story.append(Paragraph("Основная информация:", subtitle_style))
         story.append(Paragraph(f"Описание: {self.description}", text_style))
         story.append(Paragraph(f"Цена: {self.price} ₽", text_style))
@@ -272,18 +266,15 @@ class Product(models.Model):
         story.append(Paragraph(f"Количество: {self.quantity}", text_style))
         story.append(Spacer(1, 20))
 
-        # Информация об авторах
         if self.authors.exists():
             story.append(Paragraph("Авторы:", subtitle_style))
             for author in self.authors.all():
                 story.append(Paragraph(f"• {author.name}", text_style))
             story.append(Spacer(1, 20))
 
-        # Рейтинги и комментарии
         story.append(Paragraph("Рейтинг и отзывы:", subtitle_style))
         story.append(Paragraph(f"Средний рейтинг: {self.average_rating}", text_style))
         
-        # Добавляем последние комментарии
         comments = self.comments.all().order_by('-created_at')[:5]
         if comments:
             story.append(Paragraph("Последние комментарии:", text_style))
@@ -292,12 +283,10 @@ class Product(models.Model):
         
         story.append(Spacer(1, 20))
 
-        # Добавляем даты
         story.append(Paragraph("Даты:", subtitle_style))
         story.append(Paragraph(f"Создан: {self.created_at.strftime('%d.%m.%Y %H:%M')}", text_style))
         story.append(Paragraph(f"Обновлен: {self.updated_at.strftime('%d.%m.%Y %H:%M')}", text_style))
 
-        # Создаем PDF
         doc.build(story)
         buffer.seek(0)
         return buffer
@@ -316,43 +305,36 @@ class Product(models.Model):
         response['Content-Disposition'] = f'attachment; filename="product_{self.id}.pdf"'
         return response
 
-    # Демонстрация __icontains
     @classmethod
     def search_by_title(cls, query):
         """Поиск товаров по названию с использованием __icontains"""
         return cls.objects.filter(title__icontains=query)
 
-    # Демонстрация __contains
     @classmethod
     def search_by_description(cls, query):
         """Поиск товаров по описанию с использованием __contains"""
         return cls.objects.filter(description__contains=query)
 
-    # Демонстрация values()
     @classmethod
     def get_active_products_info(cls):
         """Получение информации об активных товарах с использованием values()"""
         return cls.objects.filter(is_available=True).values('title', 'price', 'quantity')
 
-    # Демонстрация values_list()
     @classmethod
     def get_product_titles(cls):
         """Получение списка названий товаров с использованием values_list()"""
         return cls.objects.values_list('title', flat=True)
 
-    # Демонстрация count()
     @classmethod
     def count_available_products(cls):
         """Подсчет доступных товаров с использованием count()"""
         return cls.objects.filter(is_available=True).count()
 
-    # Демонстрация exists()
     @classmethod
     def check_product_exists(cls, title):
         """Проверка существования товара с использованием exists()"""
         return cls.objects.filter(title=title).exists()
 
-    # Демонстрация update()
     @classmethod
     def mark_out_of_stock(cls, product_ids):
         """Обновление статуса товаров на 'нет в наличии' с использованием update()"""
@@ -361,13 +343,11 @@ class Product(models.Model):
             is_available=False
         )
 
-    # Демонстрация delete()
     @classmethod
     def delete_draft_products(cls):
         """Удаление черновиков товаров с использованием delete()"""
         return cls.objects.filter(status='draft').delete()
 
-# 6. Корзина
 class Cart(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='carts')
     is_active = models.BooleanField(default=True)
@@ -384,7 +364,6 @@ class Cart(models.Model):
         verbose_name = 'Корзина'
         verbose_name_plural = 'Корзины'
 
-# 7. Элемент корзины
 class CartItem(models.Model):
     cart = models.ForeignKey(Cart, on_delete=models.CASCADE, related_name='items')
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
@@ -403,7 +382,6 @@ class CartItem(models.Model):
         verbose_name_plural = 'Товары в корзине'
         unique_together = ('cart', 'product')
 
-# 8. Место
 class Place(models.Model):
     title = models.CharField(max_length=200)
     address = models.CharField(max_length=500)
@@ -417,7 +395,6 @@ class Place(models.Model):
     def __str__(self):
         return self.title
 
-# 9. Произведение
 class LiteraryWork(models.Model):
     title = models.CharField(max_length=200)
     content = models.TextField()
@@ -482,7 +459,6 @@ class UserProfile(models.Model):
         verbose_name_plural = 'Профили пользователей'
 
 class Resource(models.Model):
-    """Модель для демонстрации различных возможностей Django ORM"""
     name = models.CharField(max_length=200, verbose_name="Название")
     url = models.URLField(verbose_name="URL ресурса")
     description = models.TextField(verbose_name="Описание")
@@ -501,37 +477,30 @@ class Resource(models.Model):
 
     @classmethod
     def search_by_description(cls, query):
-        """Поиск по описанию с использованием __icontains"""
         return cls.objects.filter(description__icontains=query)
 
     @classmethod
     def search_by_tags(cls, tag):
-        """Поиск по тегам с использованием __contains"""
         return cls.objects.filter(tags__contains=tag)
 
     @classmethod
     def get_active_resources(cls):
-        """Получение активных ресурсов с использованием values()"""
         return cls.objects.filter(is_active=True).values('name', 'url')
 
     @classmethod
     def get_resource_names(cls):
-        """Получение только имен ресурсов с использованием values_list()"""
         return cls.objects.values_list('name', flat=True)
 
     @classmethod
     def count_active_resources(cls):
-        """Подсчет активных ресурсов с использованием count()"""
         return cls.objects.filter(is_active=True).count()
 
     @classmethod
     def check_resource_exists(cls, name):
-        """Проверка существования ресурса с использованием exists()"""
         return cls.objects.filter(name=name).exists()
 
     @classmethod
     def deactivate_old_resources(cls, days=30):
-        """Деактивация старых ресурсов с использованием update()"""
         from django.utils import timezone
         from datetime import timedelta
         old_date = timezone.now() - timedelta(days=days)
@@ -539,5 +508,4 @@ class Resource(models.Model):
 
     @classmethod
     def delete_inactive_resources(cls):
-        """Удаление неактивных ресурсов с использованием delete()"""
         return cls.objects.filter(is_active=False).delete()
