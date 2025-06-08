@@ -10,6 +10,25 @@
   color: #333;
 }
 
+.searchResults {
+  margin-bottom: 2rem;
+  padding: 1rem;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  color: #666;
+  font-size: 1.1rem;
+}
+
+.noResults {
+  text-align: center;
+  padding: 3rem;
+  color: #666;
+  font-size: 1.2rem;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  margin-top: 2rem;
+}
+
 .articlesGrid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));

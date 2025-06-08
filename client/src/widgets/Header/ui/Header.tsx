@@ -2,6 +2,7 @@ import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../shared/hooks/useAuth';
 import { CartIcon } from '../../../shared/ui/CartIcon';
+import { SearchBar } from '../../../shared/ui/SearchBar/ui/SearchBar';
 import styles from './styles.module.css';
 
 export const Header: React.FC = () => {
@@ -17,6 +18,9 @@ export const Header: React.FC = () => {
     <header className={styles.header}>
       <div className={styles.logo}>
         <Link to="/">Beliy</Link>
+      </div>
+      <div className={styles.searchWrapper}>
+        <SearchBar />
       </div>
       <nav className={styles.nav}>
         <Link to="/products" className={styles.navLink}>Products</Link>

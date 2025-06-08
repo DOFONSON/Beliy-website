@@ -17,6 +17,12 @@
   text-decoration: none;
 }
 
+.searchWrapper {
+  flex: 1;
+  max-width: 400px;
+  margin: 0 2rem;
+}
+
 .nav {
   display: flex;
   align-items: center;

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { api } from '@/shared/api';
 import styles from './ArticlesPage.module.css';
 
@@ -17,6 +17,8 @@ export const ArticlesPage = () => {
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [searchParams] = useSearchParams();
+  const searchQuery = searchParams.get('q') || '';
 
   useEffect(() => {
     const fetchArticles = async () => {
@@ -35,6 +37,10 @@ export const ArticlesPage = () => {
     fetchArticles();
   }, []);
 
+  const filteredArticles = articles.filter(article =>
+    article.title.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   if (loading) {
     return <div className={styles.loading}>Загрузка...</div>;
   }
@@ -46,8 +52,13 @@ export const ArticlesPage = () => {
   return (
     <div className={styles.articlesPage}>
       <h1 className={styles.title}>Статьи</h1>
+      {searchQuery && (
+        <div className={styles.searchResults}>
+          Результаты поиска по запросу: "{searchQuery}"
+        </div>
+      )}
       <div className={styles.articlesGrid}>
-        {articles.map((article) => (
+        {filteredArticles.map((article) => (
           <article key={article.id} className={styles.articleCard}>
             {article.image && (
               <img
@@ -77,6 +88,11 @@ export const ArticlesPage = () => {
           </article>
         ))}
       </div>
+      {searchQuery && filteredArticles.length === 0 && (
+        <div className={styles.noResults}>
+          По вашему запросу ничего не найдено
+        </div>
+      )}
     </div>
   );
 }; 
