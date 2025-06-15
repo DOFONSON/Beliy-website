@@ -16,17 +16,40 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
 from io import BytesIO
+from typing import Optional, List, Dict, Any, Union, Tuple
 
-def user_avatar_path(instance, filename):
+def user_avatar_path(instance: 'User', filename: str) -> str:
+    """
+    Генерирует путь для сохранения аватара пользователя.
+    
+    Args:
+        instance: Экземпляр модели User
+        filename: Имя загруженного файла
+        
+    Returns:
+        str: Путь для сохранения файла
+    """
     ext = filename.split('.')[-1]
     filename = f'user_{instance.id}_{int(timezone.now().timestamp())}.{ext}'
     return os.path.join('avatars', filename)
 
 class Category(models.Model):
+    """
+    Модель категории для организации контента.
+    
+    Attributes:
+        name: Название категории
+        slug: URL-friendly версия названия
+        description: Описание категории
+        parent: Родительская категория (для создания иерархии)
+        created_at: Дата создания
+        updated_at: Дата последнего обновления
+    """
     name = models.CharField(max_length=100, verbose_name="Название")
     slug = models.SlugField(max_length=100, unique=True, verbose_name="Slug")
     description = models.TextField(blank=True, verbose_name="Описание")
-    parent = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, related_name='children', verbose_name="Родительская категория")
+    parent = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, 
+                             related_name='children', verbose_name="Родительская категория")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата создания")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="Дата обновления")
 
@@ -35,60 +58,131 @@ class Category(models.Model):
         verbose_name_plural = "Категории"
         ordering = ['name']
 
-    def __str__(self):
+    def __str__(self) -> str:
+        """Возвращает строковое представление категории."""
         return self.name
 
-    def save(self, *args, **kwargs):
+    def save(self, *args: Any, **kwargs: Any) -> None:
+        """
+        Сохраняет категорию, генерируя slug если он не указан.
+        
+        Args:
+            *args: Позиционные аргументы
+            **kwargs: Именованные аргументы
+        """
         if not self.slug:
             self.slug = slugify(self.name)
         super().save(*args, **kwargs)
 
 # 1. Пользователь (расширяем стандартную модель)
 class User(AbstractUser):
+    """
+    Расширенная модель пользователя.
+    
+    Attributes:
+        email: Email пользователя (уникальный)
+        first_name: Имя пользователя
+        last_name: Фамилия пользователя
+        avatar: Аватар пользователя
+    """
     email = models.EmailField(unique=True)
     first_name = models.CharField(max_length=30, blank=True)
     last_name = models.CharField(max_length=30, blank=True)
     avatar = models.ImageField(upload_to=user_avatar_path, null=True, blank=True)
     
     @property
-    def cart(self):
+    def cart(self) -> Optional['Cart']:
+        """
+        Возвращает активную корзину пользователя.
+        
+        Returns:
+            Optional[Cart]: Активная корзина или None, если корзина не найдена
+        """
         return self.carts.filter(is_active=True).first()
 
-    def get_full_name(self):
+    def get_full_name(self) -> str:
+        """
+        Возвращает полное имя пользователя.
+        
+        Returns:
+            str: Полное имя или username, если имя не указано
+        """
         return f"{self.first_name} {self.last_name}".strip() or self.username
 
-    def get_short_name(self):
+    def get_short_name(self) -> str:
+        """
+        Возвращает короткое имя пользователя.
+        
+        Returns:
+            str: Имя или username, если имя не указано
+        """
         return self.first_name or self.username
 
 class Rating(models.Model):
+    """
+    Модель для хранения оценок пользователей.
+    
+    Attributes:
+        user: Пользователь, поставивший оценку
+        value: Значение оценки (1-5)
+        content_type: Тип контента, к которому относится оценка
+        object_id: ID объекта, к которому относится оценка
+        content_object: Связь с объектом, к которому относится оценка
+        created_at: Дата создания оценки
+    """
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     value = models.PositiveSmallIntegerField(choices=[(i, i) for i in range(1, 6)])
     
     content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
     object_id = models.PositiveIntegerField()
     content_object = GenericForeignKey('content_type', 'object_id')
-    class Meta:
-                verbose_name = ('Оценка')
-                verbose_name_plural = ('Оценки')
+    
     created_at = models.DateTimeField(default=timezone.now)
 
+    class Meta:
+        verbose_name = 'Оценка'
+        verbose_name_plural = 'Оценки'
+
 class Comment(models.Model):
+    """
+    Модель для хранения комментариев пользователей.
+    
+    Attributes:
+        user: Пользователь, оставивший комментарий
+        text: Текст комментария
+        content_type: Тип контента, к которому относится комментарий
+        object_id: ID объекта, к которому относится комментарий
+        content_object: Связь с объектом, к которому относится комментарий
+        created_at: Дата создания комментария
+    """
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     text = models.TextField(max_length=2000)
     
     content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
     object_id = models.PositiveIntegerField()
     content_object = GenericForeignKey('content_type', 'object_id')
-    class Meta:
-            verbose_name = ('Комментарий')
-            verbose_name_plural = ('Комментарии')
+    
     created_at = models.DateTimeField(default=timezone.now)
 
+    class Meta:
+        verbose_name = 'Комментарий'
+        verbose_name_plural = 'Комментарии'
+
 class Article(models.Model):
-    @property
-    def get_average_rating(self):
-        from django.db.models import Avg
-        return self.ratings.aggregate(average=Avg('value'))['average'] or 0
+    """
+    Модель статьи.
+    
+    Attributes:
+        title: Заголовок статьи
+        slug: URL-friendly версия заголовка
+        image: Изображение статьи
+        content: Содержимое статьи
+        source_url: URL источника статьи
+        ratings: Связь с оценками
+        comments: Связь с комментариями
+        created_at: Дата создания
+        updated_at: Дата последнего обновления
+    """
     title = models.CharField(max_length=200)
     slug = models.SlugField(max_length=200, unique=True, blank=True)
     image = models.ImageField(upload_to='articles/', null=True, blank=True)
@@ -102,48 +196,104 @@ class Article(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     
     class Meta:
-        verbose_name = ('Статья')
-        verbose_name_plural = ('Статьи')
+        verbose_name = 'Статья'
+        verbose_name_plural = 'Статьи'
         ordering = ['-created_at', 'title']
-    def __str__(self):
+
+    def __str__(self) -> str:
+        """Возвращает строковое представление статьи."""
         return self.title
 
-    def get_absolute_url(self):
+    def get_absolute_url(self) -> str:
+        """
+        Возвращает абсолютный URL статьи.
+        
+        Returns:
+            str: URL статьи
+        """
         return reverse('article-detail', kwargs={'slug': self.slug})
 
-    def save(self, *args, **kwargs):
+    def save(self, *args: Any, **kwargs: Any) -> None:
+        """
+        Сохраняет статью, генерируя slug если он не указан.
+        
+        Args:
+            *args: Позиционные аргументы
+            **kwargs: Именованные аргументы
+        """
         if not self.slug:
             self.slug = slugify(self.title)
         super().save(*args, **kwargs)
 
+    @property
+    def get_average_rating(self) -> float:
+        """
+        Возвращает средний рейтинг статьи.
+        
+        Returns:
+            float: Средний рейтинг или 0, если оценок нет
+        """
+        return self.ratings.aggregate(average=Avg('value'))['average'] or 0
+
     @classmethod
-    def search_by_content(cls, query):
-        """Поиск статей по содержимому с использованием __icontains"""
+    def search_by_content(cls, query: str) -> models.QuerySet:
+        """
+        Поиск статей по содержимому.
+        
+        Args:
+            query: Поисковый запрос
+            
+        Returns:
+            QuerySet: Найденные статьи
+        """
         return cls.objects.filter(content__icontains=query)
 
     @classmethod
-    def get_recent_articles_info(cls):
-        """Получение информации о последних статьях с использованием values()"""
-        return cls.objects.order_by('-created_at')[:5].values('title', 'created_at')
+    def get_recent_articles_info(cls) -> List[Dict[str, Any]]:
+        """
+        Получение информации о последних статьях.
+        
+        Returns:
+            List[Dict[str, Any]]: Список словарей с информацией о статьях
+        """
+        return list(cls.objects.order_by('-created_at')[:5].values('title', 'created_at'))
 
     @classmethod
-    def get_article_slugs(cls):
-        """Получение списка slug'ов статей с использованием values_list()"""
-        return cls.objects.values_list('slug', flat=True)
+    def get_article_slugs(cls) -> List[str]:
+        """
+        Получение списка slug'ов статей.
+        
+        Returns:
+            List[str]: Список slug'ов
+        """
+        return list(cls.objects.values_list('slug', flat=True))
 
     @classmethod
-    def count_articles_with_comments(cls):
-        """Подсчет статей с комментариями с использованием count()"""
+    def count_articles_with_comments(cls) -> int:
+        """
+        Подсчет статей с комментариями.
+        
+        Returns:
+            int: Количество статей с комментариями
+        """
         return cls.objects.filter(comments__isnull=False).distinct().count()
 
     @classmethod
-    def check_article_exists(cls, slug):
-        """Проверка существования статьи с использованием exists()"""
+    def check_article_exists(cls, slug: str) -> bool:
+        """
+        Проверка существования статьи.
+        
+        Args:
+            slug: Slug статьи
+            
+        Returns:
+            bool: True если статья существует, False в противном случае
+        """
         return cls.objects.filter(slug=slug).exists()
 
     @classmethod
-    def update_article_slugs(cls):
-        """Обновление slug'ов статей с использованием update()"""
+    def update_article_slugs(cls) -> None:
+        """Обновляет slug'и для всех статей без slug'а."""
         articles = cls.objects.all()
         for article in articles:
             if not article.slug:
@@ -151,28 +301,70 @@ class Article(models.Model):
                 article.save()
 
     @classmethod
-    def delete_old_articles(cls, days=30):
-        """Удаление старых статей с использованием delete()"""
-        from django.utils import timezone
-        from datetime import timedelta
-        old_date = timezone.now() - timedelta(days=days)
+    def delete_old_articles(cls, days: int = 30) -> Tuple[int, Dict[str, int]]:
+        """
+        Удаляет старые статьи.
+        
+        Args:
+            days: Количество дней, после которых статья считается старой
+            
+        Returns:
+            Tuple[int, Dict[str, int]]: Количество удаленных статей и словарь с деталями удаления
+        """
+        old_date = timezone.now() - timezone.timedelta(days=days)
         return cls.objects.filter(created_at__lt=old_date).delete()
 
 # 5. Товар
 class ProductManager(models.Manager):
-    def get_queryset(self):
+    """
+    Менеджер для работы с продуктами.
+    
+    Предоставляет методы для фильтрации и получения продуктов с различными условиями.
+    """
+    
+    def get_queryset(self) -> models.QuerySet:
+        """
+        Возвращает базовый QuerySet с фильтрацией по доступности.
+        
+        Returns:
+            QuerySet: QuerySet с доступными продуктами
+        """
         return super().get_queryset().filter(is_available=True)
     
-    def active(self):
+    def active(self) -> models.QuerySet:
+        """
+        Возвращает активные продукты.
+        
+        Returns:
+            QuerySet: QuerySet с активными продуктами
+        """
         return self.get_queryset()
     
-    def with_high_ratings(self):
+    def with_high_ratings(self) -> models.QuerySet:
+        """
+        Возвращает продукты с высоким рейтингом (>= 4.0).
+        
+        Returns:
+            QuerySet: QuerySet с продуктами с высоким рейтингом
+        """
         return self.get_queryset().filter(average_rating__gte=4.0)
     
-    def recently_added(self):
+    def recently_added(self) -> models.QuerySet:
+        """
+        Возвращает последние добавленные продукты.
+        
+        Returns:
+            QuerySet: QuerySet с последними 5 добавленными продуктами
+        """
         return self.get_queryset().order_by('-created_at')[:5]
     
-    def with_comments(self):
+    def with_comments(self) -> models.QuerySet:
+        """
+        Возвращает продукты с комментариями.
+        
+        Returns:
+            QuerySet: QuerySet с продуктами, имеющими комментарии
+        """
         return self.get_queryset().annotate(
             comment_count=models.Count('comments')
         ).filter(comment_count__gt=0)
@@ -185,6 +377,25 @@ STATUS_CHOICES = [
 ]
 
 class Product(models.Model):
+    """
+    Модель продукта.
+    
+    Attributes:
+        title: Название продукта
+        description: Описание продукта
+        price: Цена продукта
+        image: Изображение продукта
+        pdf_file: PDF документ продукта
+        website_url: URL сайта продукта
+        created_at: Дата создания
+        updated_at: Дата последнего обновления
+        category: Категория продукта
+        authors: Авторы продукта
+        average_rating: Средний рейтинг
+        quantity: Количество на складе
+        is_available: Доступность продукта
+        status: Статус продукта
+    """
     title = models.CharField(max_length=200, verbose_name="Название")
     description = models.TextField(verbose_name="Описание")
     price = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Цена")
@@ -193,159 +404,203 @@ class Product(models.Model):
     website_url = models.URLField(verbose_name="URL сайта", null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата создания")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="Дата обновления")
-    category = models.ForeignKey(Category, on_delete=models.CASCADE, null=True, related_name='products', verbose_name="Категория")
-    authors = models.ManyToManyField('Author', through='ProductAuthor', related_name='authored_products', verbose_name="Авторы")
-    average_rating = models.DecimalField(max_digits=3, decimal_places=2, default=0, verbose_name="Средний рейтинг")
+    category = models.ForeignKey(Category, on_delete=models.CASCADE, null=True, 
+                               related_name='products', verbose_name="Категория")
+    authors = models.ManyToManyField('Author', through='ProductAuthor', 
+                                   related_name='authored_products', verbose_name="Авторы")
+    average_rating = models.DecimalField(max_digits=3, decimal_places=2, default=0, 
+                                       verbose_name="Средний рейтинг")
     quantity = models.PositiveIntegerField(default=0, verbose_name="Количество")
     is_available = models.BooleanField(default=True, verbose_name="Доступен")
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active', verbose_name="Статус")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active', 
+                            verbose_name="Статус")
 
     objects = ProductManager()
 
     ratings = GenericRelation(Rating)
     comments = GenericRelation(Comment)
+
     class Meta:
-                verbose_name = ('Товар')
-                verbose_name_plural = ('Товары')
-    def __str__(self):
+        verbose_name = 'Товар'
+        verbose_name_plural = 'Товары'
+
+    def __str__(self) -> str:
+        """Возвращает строковое представление продукта."""
         return self.title
 
-    def update_average_rating(self):
-        avg = self.ratings.aggregate(Avg('value'))['value__avg']
-        self.average_rating = avg if avg is not None else 0
+    def update_average_rating(self) -> None:
+        """Обновляет средний рейтинг продукта."""
+        self.average_rating = self.ratings.aggregate(avg=models.Avg('value'))['avg'] or 0
         self.save()
 
-    def get_absolute_url(self):
+    def get_absolute_url(self) -> str:
+        """
+        Возвращает абсолютный URL продукта.
+        
+        Returns:
+            str: URL продукта
+        """
         return reverse('product-detail', kwargs={'pk': self.pk})
 
-    def generate_pdf(self):
-        """Генерирует PDF документ для продукта"""
+    def generate_pdf(self) -> BytesIO:
+        """
+        Генерирует PDF документ для продукта.
+        
+        Returns:
+            BytesIO: Буфер с PDF документом
+        """
         buffer = BytesIO()
         doc = SimpleDocTemplate(buffer, pagesize=letter)
         styles = getSampleStyleSheet()
-        story = []
+        elements = []
 
-        # Создаем стили
+        # Заголовок
         title_style = ParagraphStyle(
             'CustomTitle',
             parent=styles['Heading1'],
             fontSize=24,
             spaceAfter=30
         )
+        elements.append(Paragraph(self.title, title_style))
 
-        subtitle_style = ParagraphStyle(
-            'CustomSubtitle',
-            parent=styles['Heading2'],
-            fontSize=16,
-            spaceAfter=20
-        )
+        # Описание
+        elements.append(Paragraph("Описание:", styles['Heading2']))
+        elements.append(Paragraph(self.description, styles['Normal']))
+        elements.append(Spacer(1, 20))
 
-        text_style = ParagraphStyle(
-            'CustomText',
-            parent=styles['Normal'],
-            fontSize=12,
-            spaceAfter=12
-        )
+        # Цена
+        elements.append(Paragraph(f"Цена: {self.price}", styles['Normal']))
+        elements.append(Spacer(1, 20))
 
-        story.append(Paragraph(f"Информация о продукте: {self.title}", title_style))
-        story.append(Spacer(1, 20))
-
+        # Изображение
         if self.image:
-            try:
-                img = Image(self.image.path, width=400, height=300)
-                story.append(img)
-                story.append(Spacer(1, 20))
-            except:
-                pass
+            img = Image(self.image.path, width=400, height=300)
+            elements.append(img)
+            elements.append(Spacer(1, 20))
 
-        story.append(Paragraph("Основная информация:", subtitle_style))
-        story.append(Paragraph(f"Описание: {self.description}", text_style))
-        story.append(Paragraph(f"Цена: {self.price} ₽", text_style))
-        story.append(Paragraph(f"Категория: {self.category}", text_style))
-        story.append(Paragraph(f"Статус: {self.status}", text_style))
-        story.append(Paragraph(f"Количество: {self.quantity}", text_style))
-        story.append(Spacer(1, 20))
-
+        # Авторы
         if self.authors.exists():
-            story.append(Paragraph("Авторы:", subtitle_style))
+            elements.append(Paragraph("Авторы:", styles['Heading2']))
             for author in self.authors.all():
-                story.append(Paragraph(f"• {author.name}", text_style))
-            story.append(Spacer(1, 20))
+                elements.append(Paragraph(f"- {author.name}", styles['Normal']))
+            elements.append(Spacer(1, 20))
 
-        story.append(Paragraph("Рейтинг и отзывы:", subtitle_style))
-        story.append(Paragraph(f"Средний рейтинг: {self.average_rating}", text_style))
-        
-        comments = self.comments.all().order_by('-created_at')[:5]
-        if comments:
-            story.append(Paragraph("Последние комментарии:", text_style))
-            for comment in comments:
-                story.append(Paragraph(f"• {comment.user.username}: {comment.text}", text_style))
-        
-        story.append(Spacer(1, 20))
-
-        story.append(Paragraph("Даты:", subtitle_style))
-        story.append(Paragraph(f"Создан: {self.created_at.strftime('%d.%m.%Y %H:%M')}", text_style))
-        story.append(Paragraph(f"Обновлен: {self.updated_at.strftime('%d.%m.%Y %H:%M')}", text_style))
-
-        doc.build(story)
+        doc.build(elements)
         buffer.seek(0)
         return buffer
 
-    def save_pdf(self):
-        """Сохраняет сгенерированный PDF в поле pdf_file"""
+    def save_pdf(self) -> None:
+        """Сохраняет сгенерированный PDF документ."""
         if not self.pdf_file:
             pdf_buffer = self.generate_pdf()
             filename = f'product_{self.id}_{int(timezone.now().timestamp())}.pdf'
-            self.pdf_file.save(filename, pdf_buffer, save=True)
+            self.pdf_file.save(filename, ContentFile(pdf_buffer.getvalue()))
 
-    def get_pdf_response(self):
-        """Возвращает HTTP ответ с PDF файлом"""
+    def get_pdf_response(self) -> HttpResponse:
+        """
+        Возвращает HTTP ответ с PDF документом.
+        
+        Returns:
+            HttpResponse: Ответ с PDF документом
+        """
         pdf_buffer = self.generate_pdf()
         response = HttpResponse(pdf_buffer.getvalue(), content_type='application/pdf')
         response['Content-Disposition'] = f'attachment; filename="product_{self.id}.pdf"'
         return response
 
     @classmethod
-    def search_by_title(cls, query):
-        """Поиск товаров по названию с использованием __icontains"""
+    def search_by_title(cls, query: str) -> models.QuerySet:
+        """
+        Поиск продуктов по названию.
+        
+        Args:
+            query: Поисковый запрос
+            
+        Returns:
+            QuerySet: Найденные продукты
+        """
         return cls.objects.filter(title__icontains=query)
 
     @classmethod
-    def search_by_description(cls, query):
-        """Поиск товаров по описанию с использованием __contains"""
-        return cls.objects.filter(description__contains=query)
+    def search_by_description(cls, query: str) -> models.QuerySet:
+        """
+        Поиск продуктов по описанию.
+        
+        Args:
+            query: Поисковый запрос
+            
+        Returns:
+            QuerySet: Найденные продукты
+        """
+        return cls.objects.filter(description__icontains=query)
 
     @classmethod
-    def get_active_products_info(cls):
-        """Получение информации об активных товарах с использованием values()"""
-        return cls.objects.filter(is_available=True).values('title', 'price', 'quantity')
+    def get_active_products_info(cls) -> List[Dict[str, Any]]:
+        """
+        Получение информации об активных продуктах.
+        
+        Returns:
+            List[Dict[str, Any]]: Список словарей с информацией о продуктах
+        """
+        return list(cls.objects.filter(is_available=True).values('title', 'price', 'quantity'))
 
     @classmethod
-    def get_product_titles(cls):
-        """Получение списка названий товаров с использованием values_list()"""
-        return cls.objects.values_list('title', flat=True)
+    def get_product_titles(cls) -> List[str]:
+        """
+        Получение списка названий продуктов.
+        
+        Returns:
+            List[str]: Список названий
+        """
+        return list(cls.objects.values_list('title', flat=True))
 
     @classmethod
-    def count_available_products(cls):
-        """Подсчет доступных товаров с использованием count()"""
+    def count_available_products(cls) -> int:
+        """
+        Подсчет доступных продуктов.
+        
+        Returns:
+            int: Количество доступных продуктов
+        """
         return cls.objects.filter(is_available=True).count()
 
     @classmethod
-    def check_product_exists(cls, title):
-        """Проверка существования товара с использованием exists()"""
+    def check_product_exists(cls, title: str) -> bool:
+        """
+        Проверка существования продукта.
+        
+        Args:
+            title: Название продукта
+            
+        Returns:
+            bool: True если продукт существует, False в противном случае
+        """
         return cls.objects.filter(title=title).exists()
 
     @classmethod
-    def mark_out_of_stock(cls, product_ids):
-        """Обновление статуса товаров на 'нет в наличии' с использованием update()"""
+    def mark_out_of_stock(cls, product_ids: List[int]) -> int:
+        """
+        Помечает продукты как отсутствующие на складе.
+        
+        Args:
+            product_ids: Список ID продуктов
+            
+        Returns:
+            int: Количество обновленных продуктов
+        """
         return cls.objects.filter(id__in=product_ids).update(
-            status='out_of_stock',
-            is_available=False
+            is_available=False,
+            status='out_of_stock'
         )
 
     @classmethod
-    def delete_draft_products(cls):
-        """Удаление черновиков товаров с использованием delete()"""
+    def delete_draft_products(cls) -> Tuple[int, Dict[str, int]]:
+        """
+        Удаляет черновики продуктов.
+        
+        Returns:
+            Tuple[int, Dict[str, int]]: Количество удаленных продуктов и словарь с деталями удаления
+        """
         return cls.objects.filter(status='draft').delete()
 
 class Cart(models.Model):
