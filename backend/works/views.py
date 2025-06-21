@@ -24,6 +24,8 @@ import logging
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.views import APIView
 from django.db.models import Avg, Count, Sum, F, ExpressionWrapper, DecimalField
+from django_filters.rest_framework import DjangoFilterBackend
+from .filters import ProductFilter
 
 logger = logging.getLogger(__name__)
 
@@ -167,18 +169,18 @@ class ProductViewSet(viewsets.ModelViewSet):
     queryset = Product.objects.all().order_by('-created_at')
     serializer_class = ProductSerializer
     permission_classes = [IsAuthenticatedOrReadOnly]
+    filter_backends = [DjangoFilterBackend]
+    filterset_class = ProductFilter
 
     def get_queryset(self):
         queryset = Product.objects.all()
         
-        # Добавляем аннотации для дополнительной информации
         queryset = queryset.annotate(
             total_ratings=Count('ratings'),
             avg_rating=Avg('ratings__value'),
             total_comments=Count('comments')
         )
         
-        # Фильтруем только активные товары
         queryset = queryset.filter(is_available=True, status='active')
         
         return queryset

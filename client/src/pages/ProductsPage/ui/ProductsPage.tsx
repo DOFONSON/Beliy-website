@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '@/shared/api';
 import styles from './ProductsPage.module.css';
+import ProductPriceFilter from '@/components/ProductPriceFilter';
 
 interface Product {
   id: number;
@@ -22,24 +23,27 @@ export const ProductsPage = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [priceMin, setPriceMin] = useState<number | null>(null);
+  const [priceMax, setPriceMax] = useState<number | null>(null);
 
   useEffect(() => {
     const fetchProducts = async () => {
+      setLoading(true);
       try {
-        const response = await api.get('/products/');
-        console.log('Products response:', response.data); // Для отладки
+        const params: any = {};
+        if (priceMin !== null) params.price_min = priceMin;
+        if (priceMax !== null) params.price_max = priceMax;
+        const response = await api.get('/products/', { params });
         setProducts(response.data);
         setError(null);
       } catch (err) {
-        console.error('Error fetching products:', err);
         setError('Не удалось загрузить товары. Пожалуйста, попробуйте позже.');
       } finally {
         setLoading(false);
       }
     };
-
     fetchProducts();
-  }, []);
+  }, [priceMin, priceMax]);
 
   if (loading) {
     return <div className={styles.loading}>Загрузка...</div>;
@@ -56,6 +60,10 @@ export const ProductsPage = () => {
   return (
     <div className={styles.productsPage}>
       <h1 className={styles.title}>Товары</h1>
+      <ProductPriceFilter onFilter={(min, max) => {
+        setPriceMin(min);
+        setPriceMax(max);
+      }} />
       <div className={styles.productsGrid}>
         {products.map((product) => (
           <Link 
