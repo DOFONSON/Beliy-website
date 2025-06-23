@@ -17,6 +17,7 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
 from io import BytesIO
 from typing import Optional, List, Dict, Any, Union, Tuple
+from django.conf import settings
 
 def user_avatar_path(instance: 'User', filename: str) -> str:
     """
@@ -764,3 +765,19 @@ class Resource(models.Model):
     @classmethod
     def delete_inactive_resources(cls):
         return cls.objects.filter(is_active=False).delete()
+
+# Модель для экзаменов (пример: mdexam)
+class mdexam(models.Model):
+    title = models.CharField(max_length=255, verbose_name="Название экзамена")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата создания записи")
+    exam_date = models.DateTimeField(verbose_name="Дата проведения экзамена")
+    image = models.ImageField(upload_to='exams/', null=True, blank=True, verbose_name="Задание (картинка)")
+    users = models.ManyToManyField(settings.AUTH_USER_MODEL, related_name='exams', verbose_name="Пользователи")
+    is_public = models.BooleanField(default=False, verbose_name="Опубликовано")
+
+    class Meta:
+        verbose_name = "Экзамен"
+        verbose_name_plural = "Экзамены"
+
+    def __str__(self):
+        return self.title
