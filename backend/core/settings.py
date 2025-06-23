@@ -46,11 +46,13 @@ INSTALLED_APPS = [
     'corsheaders',
     'works.apps.WorksConfig',  # Используем явное указание конфигурации
     'rest_framework',
+    'silk'
 ]
 
 
 
 MIDDLEWARE = [
+    'silk.middleware.SilkyMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.security.SecurityMiddleware',
