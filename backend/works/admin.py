@@ -266,3 +266,20 @@ class CommentAdmin(admin.ModelAdmin):
     def truncated_text(self, obj):
         return obj.text[:50] + '...' if len(obj.text) > 50 else obj.text
     truncated_text.short_description = 'Текст комментария'
+
+@admin.register(mdexam)
+class mdexamAdmin(admin.ModelAdmin):
+    list_display = ("title", "exam_date", "created_at", "is_public")
+    search_fields = ("title", "users__email")
+    list_filter = ("is_public", "created_at", "exam_date")
+    filter_horizontal = ("users",)
+    fieldsets = (
+        (None, {
+            'fields': ("title", "exam_date", "image", "is_public", "users")
+        }),
+        ("Системная информация", {
+            'fields': ("created_at",),
+            'classes': ("collapse",),
+        }),
+    )
+    readonly_fields = ("created_at",)
