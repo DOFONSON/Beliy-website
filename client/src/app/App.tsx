@@ -10,6 +10,7 @@ import { CartPage } from '../pages/CartPage';
 import { ArticlesPage } from '../pages/ArticlesPage';
 import { ArticlePage } from '../pages/ArticlePage';
 import { CartProvider } from '@/features/CartIcon/model/CartContext';
+import ExamPage from '@/pages/ExamPage';
 
 function App() {
   return (
@@ -25,6 +26,7 @@ function App() {
             <Route path="products" element={<ProductsPage />} />
             <Route path="products/:id" element={<ProductPage />} />
             <Route path="cart" element={<CartPage />} />
+            <Route path="exam" element={<ExamPage />} />
           </Route>
         </Routes>
       </CartProvider>

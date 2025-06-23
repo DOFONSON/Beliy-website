@@ -4,7 +4,7 @@ from django.views.generic.detail import DetailView
 from django.urls import reverse_lazy
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import models
-from .models import Product, Author, ProductAuthor, Article, Rating, Place, LiteraryWork, User, UserProfile, Comment, Cart, CartItem
+from .models import Product, Author, ProductAuthor, Article, Rating, Place, LiteraryWork, User, UserProfile, Comment, Cart, CartItem, mdexam
 from .forms import ProductForm, AuthorForm, ProductAuthorForm
 from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
@@ -15,7 +15,7 @@ from rest_framework.decorators import action, api_view, permission_classes, pars
 from rest_framework.response import Response
 from .serializers import (
     ArticleSerializer, ProductSerializer, AuthorSerializer,
-    PlaceSerializer, LiteraryWorkSerializer, CommentSerializer, UserSerializer, UserProfileSerializer, CartSerializer, CartItemSerializer
+    PlaceSerializer, LiteraryWorkSerializer, CommentSerializer, UserSerializer, UserProfileSerializer, CartSerializer, CartItemSerializer, ExamSerializer
 )
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.auth import authenticate
@@ -26,6 +26,7 @@ from rest_framework.views import APIView
 from django.db.models import Avg, Count, Sum, F, ExpressionWrapper, DecimalField
 from django_filters.rest_framework import DjangoFilterBackend
 from .filters import ProductFilter
+from django.core.serializers import serialize
 
 logger = logging.getLogger(__name__)
 
@@ -463,4 +464,40 @@ class UserViewSet(viewsets.ModelViewSet):
         ).order_by('-comments_count')[:9]  # Получаем топ-9 пользователей
         
         serializer = self.get_serializer(users, many=True)
+        return Response(serializer.data)
+
+def exam_view(request):
+    exams = mdexam.objects.filter(is_public=True).order_by('-created_at')
+    context = {
+        'exams': exams,
+        'fio': 'Назаров Тимофей',
+        'group': '231-322',
+    }
+    return render(request, 'works/exam_list.html', context)
+
+def exam_list_api(request):
+    exams = mdexam.objects.filter(is_public=True).order_by('-created_at').prefetch_related('users')
+    data = []
+    for exam in exams:
+        data.append({
+            'id': exam.id,
+            'title': exam.title,
+            'created_at': exam.created_at.isoformat(),
+            'exam_date': exam.exam_date.isoformat() if exam.exam_date else None,
+            'image': exam.image.url if exam.image else null,
+            'users': [
+                {
+                    'id': user.id,
+                    'username': user.username,
+                    'first_name': user.first_name,
+                    'last_name': user.last_name,
+                } for user in exam.users.all()
+            ],
+        })
+    return JsonResponse(data, safe=False)
+
+class ExamListAPIView(APIView):
+    def get(self, request):
+        exams = mdexam.objects.filter(is_public=True).order_by('-created_at').prefetch_related('users')
+        serializer = ExamSerializer(exams, many=True, context={'request': request})
         return Response(serializer.data)

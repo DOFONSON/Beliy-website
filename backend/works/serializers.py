@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from .models import (
     User, Article, Product, Author, Place, LiteraryWork,
-    Comment, Rating, Cart, CartItem, ProductAuthor, UserProfile
+    Comment, Rating, Cart, CartItem, ProductAuthor, UserProfile, mdexam
 )
 import os
 
@@ -190,3 +190,24 @@ class CartSerializer(serializers.ModelSerializer):
 
     def get_total_price(self, obj):
         return obj.get_total_price()
+
+class ExamUserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['id', 'username', 'first_name', 'last_name']
+
+class ExamSerializer(serializers.ModelSerializer):
+    users = ExamUserSerializer(many=True, read_only=True)
+    image = serializers.SerializerMethodField()
+
+    class Meta:
+        model = mdexam
+        fields = ['id', 'title', 'created_at', 'exam_date', 'image', 'users']
+
+    def get_image(self, obj):
+        request = self.context.get('request')
+        if obj.image:
+            if request:
+                return request.build_absolute_uri(obj.image.url)
+            return obj.image.url
+        return None

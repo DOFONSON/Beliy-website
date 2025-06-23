@@ -5,7 +5,7 @@ from .views import (
     ProductListView, ProductDetailView, 
     ProductCreateView, ProductUpdateView, ProductDeleteView,
     rate_article, login_view, register_view, profile_view, check_auth,
-    CartView, AddToCartView, CartItemView
+    CartView, AddToCartView, CartItemView, ExamListAPIView
 )
 
 router = DefaultRouter()
@@ -27,6 +27,7 @@ api_urlpatterns = [
     path('cart/add/', AddToCartView.as_view(), name='add-to-cart'),
     path('cart/items/<int:item_id>/', CartItemView.as_view(), name='cart-item'),
     path('products/<int:product_id>/rate/', views.ProductRatingView.as_view(), name='product_rate'),
+    path('exam-list/', ExamListAPIView.as_view(), name='exam-list-api'),
 ]
 
 urlpatterns = [
@@ -37,4 +38,5 @@ urlpatterns = [
     path('products/<int:pk>/update/', ProductUpdateView.as_view(), name='product-update'),
     path('products/<int:pk>/delete/', ProductDeleteView.as_view(), name='product-delete'),
     path('articles/<int:article_id>/rate/', rate_article, name='rate-article'),
+    path('exam/', views.exam_view, name='exam-list'),
 ] 

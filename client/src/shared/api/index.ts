@@ -79,4 +79,9 @@ export const updateCartItem = async (itemId: number, quantity: number) => {
 export const removeFromCart = async (itemId: number) => {
   const response = await api.delete(`/cart/items/${itemId}/`);
   return response.data;
+};
+
+export const getExams = async () => {
+  const response = await api.get('/exam-list/');
+  return response.data;
 }; 
