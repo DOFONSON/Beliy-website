@@ -12,6 +12,10 @@ from django.utils.html import format_html
 from .models import *
 from django.urls import path
 from django.shortcuts import get_object_or_404
+from faker import Faker
+import random
+from django.contrib.auth import get_user_model
+from django.utils import timezone
 
 admin.site.site_header = "Администрирование сайта Андрея Белого"
 admin.site.index_title = "Управление контентом"
@@ -283,3 +287,23 @@ class mdexamAdmin(admin.ModelAdmin):
         }),
     )
     readonly_fields = ("created_at",)
+
+    actions = ["generate_fake_exams"]
+
+    def generate_fake_exams(self, request, queryset):
+        fake = Faker()
+        User = get_user_model()
+        users = list(User.objects.all())
+        if len(users) < 2:
+            self.message_user(request, "Для генерации экзаменов нужно минимум 2 пользователя.", level='error')
+            return
+        for _ in range(5):
+            exam = mdexam.objects.create(
+                title=fake.sentence(nb_words=3),
+                exam_date=fake.future_datetime(end_date="+30d", tzinfo=timezone.get_current_timezone()),
+                is_public=random.choice([True, False])
+            )
+            exam.save()
+            exam.users.set(random.sample(users, k=random.randint(1, min(3, len(users)))))
+        self.message_user(request, "5 фейковых экзаменов успешно добавлены!")
+    generate_fake_exams.short_description = "Сгенерировать 5 фейковых экзаменов (Faker)"
